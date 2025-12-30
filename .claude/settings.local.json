@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm run build:*)",
+      "Bash(pnpm run lint:*)",
+      "Bash(pnpx eslint:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm run build:client:*)",
+      "Bash(pnpm eslint:*)",
+      "Bash(find:*)"
+    ]
+  }
+}
