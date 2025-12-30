@@ -1,0 +1,264 @@
+/**
+ * 网络管理器
+ * 管理 Socket.io 连接，处理所有网络事件
+ * 单例模式，使用组合模式拆分功能
+ */
+
+import type { RoomCreatedEvent, RoomJoinedEvent } from "./types";
+import { NetworkConnection } from "./NetworkConnection";
+import { NetworkEvents } from "./NetworkEvents";
+import { NetworkAPI } from "./NetworkAPI";
+
+type EventHandler = (data: unknown) => void;
+
+export class NetworkManager {
+  // 单例实例
+  private static instance: NetworkManager | null = null;
+
+  private connection: NetworkConnection;
+  private events: NetworkEvents;
+  private api: NetworkAPI;
+
+  private currentRoomId: string | null = null;
+  private localPlayerId: string | null = null;
+  private isHost: boolean = false;
+  private eventHandlers: Map<string, EventHandler[]> = new Map();
+
+  private constructor() {
+    this.connection = new NetworkConnection();
+    this.events = new NetworkEvents();
+    this.api = new NetworkAPI(null);
+
+    this.connect();
+  }
+
+  /**
+   * 获取单例实例
+   */
+  public static getInstance(): NetworkManager {
+    if (!NetworkManager.instance) {
+      NetworkManager.instance = new NetworkManager();
+    }
+    return NetworkManager.instance;
+  }
+
+  /**
+   * 连接到服务器
+   */
+  private connect(): void {
+    const socket = this.connection.connect(
+      () => {
+        this.emit("network:connected", {
+          socketId: this.connection.getSocketId(),
+        });
+      },
+      (reason) => {
+        this.emit("network:disconnected", { reason });
+      },
+      (error) => {
+        this.emit("network:error", { error });
+      },
+    );
+
+    this.api.updateSocket(socket);
+
+    if (socket) {
+      this.events.setupAllEventListeners(socket, (event, data) =>
+        this.handleServerEvent(event, data),
+      );
+    }
+  }
+
+  /**
+   * 处理服务器事件，更新内部状态后转发给监听器
+   */
+  private handleServerEvent(event: string, data: unknown): void {
+    // 更新内部状态
+    if (event === "room:created") {
+      const roomData = data as RoomCreatedEvent;
+      this.currentRoomId = roomData.roomId;
+      this.localPlayerId = roomData.yourPlayerId;
+      this.isHost = roomData.isHost;
+    } else if (event === "room:joined") {
+      const roomData = data as RoomJoinedEvent;
+      this.currentRoomId = roomData.roomId;
+      this.localPlayerId = roomData.yourPlayerId;
+      this.isHost = roomData.isHost;
+    }
+
+    // 转发给监听器
+    this.emit(event, data);
+  }
+
+  /**
+   * 创建房间
+   */
+  createRoom(config: {
+    roomName: string;
+    password?: string;
+    maxPlayers: number;
+    playerConfig: { name: string; color: number };
+  }): void {
+    this.api.createRoom(config);
+  }
+
+  /**
+   * 加入房间
+   */
+  joinRoom(
+    roomId: string,
+    password: string | undefined,
+    playerConfig: { name: string; color: number },
+  ): void {
+    this.api.joinRoom(roomId, password, playerConfig);
+  }
+
+  /**
+   * 离开房间
+   */
+  leaveRoom(): void {
+    if (!this.currentRoomId) return;
+
+    this.api.leaveRoom(this.currentRoomId);
+
+    this.currentRoomId = null;
+    this.localPlayerId = null;
+    this.isHost = false;
+  }
+
+  /**
+   * 获取房间列表
+   */
+  getRoomList(): void {
+    this.api.getRoomList();
+  }
+
+  /**
+   * 开始游戏
+   */
+  startGame(): void {
+    if (!this.currentRoomId || !this.localPlayerId) return;
+    this.api.startGame(this.currentRoomId, this.localPlayerId);
+  }
+
+  /**
+   * 重新开始游戏
+   */
+  restartGame(): void {
+    if (!this.currentRoomId || !this.localPlayerId) return;
+    this.api.restartGame(this.currentRoomId, this.localPlayerId);
+  }
+
+  /**
+   * 发送玩家输入
+   */
+  sendPlayerInput(
+    input: {
+      up: boolean;
+      down: boolean;
+      left: boolean;
+      right: boolean;
+      attack: boolean;
+      block: boolean;
+    },
+    position: { x: number; y: number },
+    rotation: number,
+  ): void {
+    if (!this.currentRoomId || !this.localPlayerId) return;
+
+    this.api.sendPlayerInput(
+      this.currentRoomId,
+      this.localPlayerId,
+      input,
+      position,
+      rotation,
+    );
+  }
+
+  /**
+   * 发送玩家动作
+   */
+  sendPlayerAction(action: {
+    action: "attack" | "block" | "weapon_switch";
+    data?: { weaponIndex?: number; angle?: number };
+  }): void {
+    if (!this.currentRoomId || !this.localPlayerId) return;
+
+    this.api.sendPlayerAction(this.currentRoomId, this.localPlayerId, action);
+  }
+
+  /**
+   * 发送聊天消息
+   */
+  sendChatMessage(message: string): void {
+    if (!this.currentRoomId || !this.localPlayerId) return;
+
+    this.api.sendChatMessage(this.currentRoomId, this.localPlayerId, message);
+  }
+
+  /**
+   * 注册事件监听器
+   */
+  on(event: string, handler: EventHandler): void {
+    if (!this.eventHandlers.has(event)) {
+      this.eventHandlers.set(event, []);
+    }
+    this.eventHandlers.get(event)!.push(handler);
+  }
+
+  /**
+   * 移除事件监听器
+   */
+  off(event: string, handler: EventHandler): void {
+    const handlers = this.eventHandlers.get(event);
+    if (handlers) {
+      const index = handlers.indexOf(handler);
+      if (index !== -1) {
+        handlers.splice(index, 1);
+      }
+    }
+  }
+
+  /**
+   * 触发事件
+   */
+  private emit(event: string, data?: unknown): void {
+    const handlers = this.eventHandlers.get(event);
+    if (handlers) {
+      handlers.forEach((handler) => {
+        try {
+          handler(data);
+        } catch (error) {
+          console.error(`[NetworkManager] 事件处理器错误 (${event}):`, error);
+        }
+      });
+    }
+  }
+
+  /**
+   * 断开连接
+   */
+  disconnect(): void {
+    this.connection.disconnect();
+    this.currentRoomId = null;
+    this.localPlayerId = null;
+  }
+
+  // ============ Getters ============
+
+  get connected(): boolean {
+    return this.connection.getConnected();
+  }
+
+  get roomId(): string | null {
+    return this.currentRoomId;
+  }
+
+  get playerId(): string | null {
+    return this.localPlayerId;
+  }
+
+  get host(): boolean {
+    return this.isHost;
+  }
+}

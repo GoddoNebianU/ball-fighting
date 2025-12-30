@@ -1,0 +1,490 @@
+/**
+ * 游戏房间
+ * 管理单个房间的玩家、游戏循环、状态同步
+ */
+
+import { Server } from "socket.io";
+import { v4 as uuidv4 } from "uuid";
+import type {
+  PlayerConfig,
+  BulletState,
+  GameStartingEvent,
+  GameStartedEvent,
+  GameOverEvent,
+  PlayerDiedEvent,
+} from "../types";
+import { RoomPlayerManager } from "./managers/RoomPlayerManager";
+import { RoomGameLoop } from "./managers/RoomGameLoop";
+import { RoomCombat } from "./managers/RoomCombat";
+
+export class GameRoom {
+  private id: string;
+  private name: string;
+  private password: string | undefined;
+  private maxPlayers: number;
+  private io: Server;
+
+  private playerManager: RoomPlayerManager;
+  private gameLoop: RoomGameLoop;
+  private combat: RoomCombat;
+
+  private status: "waiting" | "playing" | "finished" = "waiting";
+  private gameInterval: NodeJS.Timeout | null = null;
+  private stateUpdateInterval: NodeJS.Timeout | null = null;
+
+  private roundTime: number = 99;
+  private currentRound: number = 1;
+  private gameStartTime: number = 0;
+
+  private readonly STAGE_WIDTH = 800;
+  private readonly STAGE_HEIGHT = 600;
+
+  constructor(
+    id: string,
+    name: string,
+    password: string | undefined,
+    maxPlayers: number,
+    io: Server,
+  ) {
+    this.id = id;
+    this.name = name;
+    this.password = password;
+    this.maxPlayers = maxPlayers;
+    this.io = io;
+
+    this.playerManager = new RoomPlayerManager(maxPlayers);
+    this.gameLoop = new RoomGameLoop();
+    this.combat = new RoomCombat();
+
+    console.log(`[GameRoom] 房间已创建: ${id}`);
+  }
+
+  public getId(): string {
+    return this.id;
+  }
+
+  public getName(): string {
+    return this.name;
+  }
+
+  public getPassword(): string | undefined {
+    return this.password;
+  }
+
+  public getMaxPlayers(): number {
+    return this.maxPlayers;
+  }
+
+  public getStatus(): "waiting" | "playing" | "finished" {
+    return this.status;
+  }
+
+  public addPlayer(
+    playerId: string,
+    socketId: string,
+    config: PlayerConfig,
+    isHost: boolean,
+  ): boolean {
+    return this.playerManager.addPlayer(playerId, socketId, config, isHost);
+  }
+
+  public removePlayer(playerId: string): void {
+    this.playerManager.removePlayer(playerId);
+
+    // 如果房间为空，标记为已销毁
+    if (this.playerManager.isEmpty()) {
+      this.stopGameLoop();
+      this.status = "finished";
+      console.log(`[GameRoom] 房间已销毁: ${this.id}`);
+    }
+  }
+
+  public startGame(): void {
+    if (this.status === "playing") return;
+
+    this.fillWithAI();
+
+    // 发送倒计时
+    let countdown = 3;
+    const event: GameStartingEvent = {
+      roomId: this.id,
+      countdown,
+    };
+    this.io.to(this.id).emit("game:starting", event);
+
+    const countdownInterval = setInterval(() => {
+      countdown--;
+      if (countdown > 0) {
+        event.countdown = countdown;
+        this.io.to(this.id).emit("game:starting", event);
+      } else {
+        clearInterval(countdownInterval);
+        this.actualStartGame();
+      }
+    }, 1000);
+  }
+
+  private actualStartGame(): void {
+    this.status = "playing";
+    this.gameStartTime = Date.now();
+    this.roundTime = 99;
+    this.currentRound = 1;
+
+    // 重置所有玩家状态
+    this.playerManager.resetPlayers();
+
+    // 清理之前的战斗数据
+    this.combat.clear();
+
+    // 发送游戏开始事件
+    const startedEvent: GameStartedEvent = {
+      roomId: this.id,
+      startTime: Date.now(),
+      playerConfigs: this.getPlayerConfigs(),
+    };
+    this.io.to(this.id).emit("game:started", startedEvent);
+
+    // 启动游戏循环
+    this.startGameLoop();
+    this.startStateUpdate();
+
+    console.log(`[GameRoom] 游戏已开始: ${this.id}`);
+  }
+
+  private fillWithAI(): void {
+    const humanCount = this.playerManager.getHumanPlayerCount();
+    const aiNeeded = this.maxPlayers - humanCount;
+
+    if (aiNeeded <= 0) return;
+
+    console.log(`[GameRoom] 已填充 ${aiNeeded} 个 AI`);
+
+    for (let i = 0; i < aiNeeded; i++) {
+      const aiId = `ai_${uuidv4()}`;
+      const angle = ((humanCount + i) * 2 * Math.PI) / this.maxPlayers;
+      const radius = Math.min(this.STAGE_WIDTH, this.STAGE_HEIGHT) * 0.35;
+      const startX = Math.cos(angle) * radius;
+      const startY = Math.sin(angle) * radius;
+
+      this.playerManager.addPlayer(
+        aiId,
+        "",
+        {
+          name: `AI_${Math.floor(Math.random() * 1000)}`,
+          color: Math.floor(Math.random() * 0xffffff),
+          startX,
+          startY,
+          isAI: true,
+        },
+        false,
+      );
+    }
+  }
+
+  private startGameLoop(): void {
+    let lastTime = Date.now();
+
+    this.gameInterval = setInterval(() => {
+      const currentTime = Date.now();
+      const deltaTime = (currentTime - lastTime) / 1000;
+      lastTime = currentTime;
+
+      this.update(deltaTime);
+      this.checkGameOver();
+    }, 1000 / 60); // 60 FPS
+  }
+
+  private stopGameLoop(): void {
+    if (this.gameInterval) {
+      clearInterval(this.gameInterval);
+      this.gameInterval = null;
+    }
+    if (this.stateUpdateInterval) {
+      clearInterval(this.stateUpdateInterval);
+      this.stateUpdateInterval = null;
+    }
+  }
+
+  private startStateUpdate(): void {
+    this.stateUpdateInterval = setInterval(() => {
+      this.broadcastGameState();
+    }, 50); // 20 Hz
+  }
+
+  private update(deltaTime: number): void {
+    const players = this.playerManager.getAllPlayers();
+
+    // 更新玩家移动
+    players.forEach((player) => {
+      this.gameLoop.updatePlayerMovement(player, deltaTime);
+      this.gameLoop.updatePlayerAttack(player, Date.now(), (bullet) => {
+        const bulletState: BulletState = {
+          id: `bullet_${uuidv4()}`,
+          ownerId: bullet.ownerId,
+          position: { x: bullet.x, y: bullet.y },
+          velocity: {
+            x: Math.cos(bullet.rotation) * bullet.speed,
+            y: Math.sin(bullet.rotation) * bullet.speed,
+          },
+          damage: bullet.damage,
+          knockback: 10,
+          active: true,
+        };
+        this.combat.spawnBullet(bulletState);
+        this.io.to(this.id).emit("game:bullet_spawn", bulletState);
+      });
+    });
+
+    // 更新子弹
+    this.combat.updateBullets(
+      deltaTime,
+      (bulletId, targetId, damage) => {
+        const player = this.playerManager.getPlayer(targetId);
+        if (player && !player.isDead) {
+          const newHealth = Math.max(0, player.health - damage);
+          this.playerManager.damagePlayer(targetId, damage, newHealth);
+
+          this.io.to(this.id).emit("game:player_damaged", {
+            targetId,
+            damage,
+            newHealth,
+          });
+
+          if (newHealth <= 0) {
+            const diedEvent: PlayerDiedEvent = {
+              roomId: this.id,
+              playerId: targetId,
+              killerId: this.combat.getBullet(bulletId)?.ownerId || "",
+            };
+            this.io.to(this.id).emit("game:player_died", diedEvent);
+          }
+        }
+      },
+      (bulletId) => {
+        this.io.to(this.id).emit("game:bullet_destroy", { bulletId });
+      },
+    );
+
+    // 检查子弹碰撞
+    this.combat.getBullets().forEach((bullet) => {
+      this.combat.checkBulletCollision(
+        bullet.id,
+        players,
+        (bulletId, targetId, damage) => {
+          const player = this.playerManager.getPlayer(targetId);
+          if (player && !player.isDead) {
+            const newHealth = Math.max(0, player.health - damage);
+            this.playerManager.damagePlayer(targetId, damage, newHealth);
+
+            this.io.to(this.id).emit("game:player_damaged", {
+              targetId,
+              damage,
+              newHealth,
+            });
+
+            if (newHealth <= 0) {
+              const diedEvent: PlayerDiedEvent = {
+                roomId: this.id,
+                playerId: targetId,
+                killerId: bullet.ownerId,
+              };
+              this.io.to(this.id).emit("game:player_died", diedEvent);
+            }
+          }
+        },
+      );
+    });
+
+    // 更新血包
+    this.combat.updateHealthPacks(
+      Date.now(),
+      deltaTime,
+      (pack) => {
+        this.io.to(this.id).emit("game:health_pack_spawn", pack);
+      },
+      (packId, playerId, healAmount) => {
+        const player = this.playerManager.getPlayer(playerId);
+        if (player) {
+          player.health = Math.min(200, player.health + healAmount);
+          this.io.to(this.id).emit("game:health_pack_consumed", {
+            packId,
+            playerId,
+            healAmount,
+            newHealth: player.health,
+          });
+        }
+      },
+    );
+
+    // 检查血包碰撞
+    this.combat.checkHealthPackCollision(
+      players,
+      (packId, playerId, healAmount) => {
+        const player = this.playerManager.getPlayer(playerId);
+        if (player) {
+          player.health = Math.min(200, player.health + healAmount);
+          this.io.to(this.id).emit("game:health_pack_consumed", {
+            packId,
+            playerId,
+            healAmount,
+            newHealth: player.health,
+          });
+        }
+      },
+    );
+  }
+
+  private checkGameOver(): void {
+    const alivePlayers = this.playerManager.getAlivePlayers();
+
+    // 只剩一个玩家存活，游戏结束
+    if (alivePlayers.length <= 1 && this.playerManager.getSize() > 1) {
+      const winner = alivePlayers[0];
+      this.endGame(winner?.id || "");
+    }
+  }
+
+  private endGame(winnerId: string): void {
+    this.stopGameLoop();
+    this.status = "finished";
+
+    const winner = this.playerManager.getPlayer(winnerId);
+    const scores: { [playerId: string]: number } = {};
+    this.playerManager.getAllPlayers().forEach((p) => {
+      scores[p.id] = p.score;
+    });
+
+    const gameOverEvent: GameOverEvent = {
+      roomId: this.id,
+      winnerId,
+      winnerName: winner?.config.name || "Unknown",
+      scores,
+    };
+
+    this.io.to(this.id).emit("game:over", gameOverEvent);
+    console.log(
+      `[GameRoom] 游戏已结束: ${this.id}, 获胜者: ${winner?.config.name}`,
+    );
+  }
+
+  private broadcastGameState(): void {
+    const players = this.playerManager.getAllPlayerStates();
+    const bullets = this.combat.getBullets();
+    const healthPacks = this.combat.getHealthPacks();
+
+    this.io.to(this.id).emit("game:state_update", {
+      players,
+      bullets,
+      healthPacks,
+      roundTime: this.roundTime,
+    });
+  }
+
+  public handlePlayerInput(
+    playerId: string,
+    input: {
+      up: boolean;
+      down: boolean;
+      left: boolean;
+      right: boolean;
+      attack: boolean;
+      block: boolean;
+    },
+  ): void {
+    this.playerManager.updatePlayerInput(playerId, input);
+  }
+
+  public getPlayerConfigs() {
+    return this.playerManager.getAllPlayers().map((p) => ({
+      id: p.id,
+      name: p.config.name,
+      color: p.config.color,
+      startX: p.config.startX || 0,
+      startY: p.config.startY || 0,
+      isAI: p.config.isAI,
+    }));
+  }
+
+  public getPlayers() {
+    return this.playerManager.getAllPlayers();
+  }
+
+  public getPlayersInfo() {
+    return this.playerManager.getAllPlayers().map((p) => ({
+      id: p.id,
+      name: p.config.name,
+      color: p.config.color,
+      isAI: p.config.isAI || false,
+      isHost: p.isHost,
+      score: p.score,
+      currentWeapon: p.currentWeapon,
+      health: p.health,
+      position: { x: p.x, y: p.y },
+    }));
+  }
+
+  public getPlayerInfo(playerId: string) {
+    const player = this.playerManager.getPlayer(playerId);
+    if (!player) return null;
+    return {
+      id: player.id,
+      name: player.config.name,
+      color: player.config.color,
+      isAI: player.config.isAI || false,
+      isHost: player.isHost,
+      score: player.score,
+      currentWeapon: player.currentWeapon,
+      health: player.health,
+      position: { x: player.x, y: player.y },
+    };
+  }
+
+  public hasPassword(): boolean {
+    return !!this.password;
+  }
+
+  public isPlaying(): boolean {
+    return this.status === "playing";
+  }
+
+  public isFull(): boolean {
+    return this.playerManager.getSize() >= this.maxPlayers;
+  }
+
+  public isHost(playerId: string): boolean {
+    const player = this.playerManager.getPlayer(playerId);
+    return player?.isHost || false;
+  }
+
+  public restartGame(): void {
+    this.actualStartGame();
+  }
+
+  public handlePlayerAction(playerId: string, action: unknown): void {
+    // 暂时不处理动作，只处理输入
+    console.log(`[GameRoom] 玩家 ${playerId} 执行动作:`, action);
+  }
+
+  public handleChatMessage(playerId: string, message: string): void {
+    // 广播聊天消息到房间内所有玩家
+    this.io.to(this.id).emit("chat:message", {
+      roomId: this.id,
+      playerId,
+      playerName:
+        this.playerManager.getPlayer(playerId)?.config.name || "Unknown",
+      message,
+      timestamp: Date.now(),
+    });
+  }
+
+  public getPlayerCount(): number {
+    return this.playerManager.getSize();
+  }
+
+  public destroy(): void {
+    this.stopGameLoop();
+    this.status = "finished";
+    this.combat.clear();
+    console.log(`[GameRoom] 房间已销毁: ${this.id}`);
+  }
+}

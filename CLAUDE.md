@@ -30,6 +30,7 @@ tsc --noEmit
 这是一个基于 PixiJS v8 的俯视角火柴人格斗游戏项目。
 
 ### 核心技术栈
+
 - **PixiJS v8** - 2D 渲染引擎
 - **TypeScript** - 类型安全开发
 - **Vite** - 构建工具
@@ -67,15 +68,16 @@ FightingGame (游戏主控制器)
 
 ```typescript
 interface PlayerConfig {
-  name: string;      // 玩家名称 (用于 UI 和获胜通知)
-  color: number;     // 角色颜色
-  startX: number;    // 初始 X 位置
-  startY: number;    // 初始 Y 位置
-  isAI: boolean;     // 是否为 AI 控制
+  name: string; // 玩家名称 (用于 UI 和获胜通知)
+  color: number; // 角色颜色
+  startX: number; // 初始 X 位置
+  startY: number; // 初始 Y 位置
+  isAI: boolean; // 是否为 AI 控制
 }
 ```
 
 **关键特性**:
+
 - 不再硬编码 player1/2/3，使用动态数组
 - 通过 `isAI` 字段控制是玩家还是 AI
 - 玩家名称在配置中指定，自动同步到 UI 和获胜通知
@@ -86,11 +88,11 @@ interface PlayerConfig {
 
 ```typescript
 enum FighterState {
-  IDLE,   // 待机
-  WALK,   // 移动
+  IDLE, // 待机
+  WALK, // 移动
   ATTACK, // 攻击中
-  BLOCK,  // 格挡
-  HIT,    // 受击眩晕
+  BLOCK, // 格挡
+  HIT, // 受击眩晕
 }
 ```
 
@@ -106,6 +108,7 @@ enum FighterState {
 - **WeaponManager** - 管理多个武器的切换和状态
 
 **关键设计**：
+
 - 玩家和 AI 共享相同的武器对象
 - `Weapon.shoot()` 方法处理弹药消耗和冷却检查
 - `Weapon.getState()` 返回当前弹药、换弹状态
@@ -195,6 +198,7 @@ FightingGame.update()
 ### 操作控制
 
 **玩家 1** (蓝色 - WASD):
+
 - `W/A/S/D` - 移动
 - `Space` - 格挡
 - `J` - 当前武器攻击
@@ -205,6 +209,7 @@ FightingGame.update()
 - `I` - 切换狙击枪
 
 **玩家 2** (橙色 - 数字键):
+
 - `5/2/1/3` (小键盘或主键盘) - 上/下/左/右移动
 - `0` - 攻击
 - `.` (小数点) - 格挡
@@ -223,25 +228,25 @@ FightingGame.update()
 ```typescript
 const playerConfigs: PlayerConfig[] = [
   {
-    name: "P1",              // 玩家名称 (显示在 UI 和获胜通知)
-    color: 0x4488ff,         // 蓝色
+    name: "P1", // 玩家名称 (显示在 UI 和获胜通知)
+    color: 0x4488ff, // 蓝色
     startX: -200,
     startY: 0,
-    isAI: false,             // 人类玩家
+    isAI: false, // 人类玩家
   },
   {
-    name: "P2",              // 第二个玩家
-    color: 0xff6644,         // 橙色
+    name: "P2", // 第二个玩家
+    color: 0xff6644, // 橙色
     startX: 200,
     startY: 0,
-    isAI: false,             // 人类玩家
+    isAI: false, // 人类玩家
   },
   {
-    name: "AI",              // AI 玩家
-    color: 0x44ff44,         // 绿色
+    name: "AI", // AI 玩家
+    color: 0x44ff44, // 绿色
     startX: 0,
     startY: 200,
-    isAI: true,              // AI 控制
+    isAI: true, // AI 控制
   },
 ];
 ```
@@ -249,11 +254,13 @@ const playerConfigs: PlayerConfig[] = [
 ### 游戏平衡参数
 
 **角色属性** (`FighterConfig.ts`):
+
 - `maxHealth: 200` - 最大生命值
 - `walkSpeed: 180` - 移动速度
 - `radius: 25` - 碰撞半径
 
 **武器平衡**:
+
 - 手枪: 15 伤害, 600ms 冷却, 无限弹药
 - 机枪: 2 伤害, 100ms 冷却, 30 发弹夹, 可连发
 - 狙击枪: 50 伤害, 5秒 冷却, 每回合 3 发, 不自动换弹

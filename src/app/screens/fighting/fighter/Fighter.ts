@@ -5,14 +5,13 @@ import { FighterPhysics } from "./FighterPhysics";
 import { FighterState } from "../types";
 import { FighterCombat } from "./FighterCombat";
 import { WeaponManager, Weapon } from "../weapons";
-import { AttackData } from "./FighterTypes";
 import { FighterConfig } from "./FighterConfig";
 import { FighterInput } from "./FighterInput";
+import { FighterActions } from "./FighterActions";
+import { FighterStateManager } from "./FighterStateManager";
 
-/** 子弹类 */
 export { Bullet } from "../combat/Bullet";
 
-/** 角色类 - 俯视角 */
 export class Fighter extends Container {
   public static readonly CONFIG = FighterConfig.CONFIG;
 
@@ -21,8 +20,6 @@ export class Fighter extends Container {
   public lastAttacker: Fighter | null = null;
 
   private inputHandler: FighterInput;
-
-  // 子系统
   private physics: FighterPhysics;
   private graphics: FighterGraphics;
   public combat: FighterCombat;
@@ -46,7 +43,6 @@ export class Fighter extends Container {
     return this.inputHandler.input;
   }
 
-  // 公开状态访问
   public get state(): FighterState {
     return this.combat.state;
   }
@@ -90,7 +86,7 @@ export class Fighter extends Container {
           this.combat.cooldownTimer <= 0);
 
       if (canAttack && this.input.attackLight) {
-        this.startAttack();
+        FighterActions.startAttack(this);
       }
 
       this.combat.setBlock(this.input.block);
@@ -108,14 +104,7 @@ export class Fighter extends Container {
   }
 
   public startAttack(): void {
-    const weapon = this.currentWeapon;
-    const weaponData = weapon.getData();
-
-    if (!weapon.shoot()) {
-      return;
-    }
-
-    this.combat.startAttackFromWeapon(weaponData);
+    FighterActions.startAttack(this);
   }
 
   public takeHit(
@@ -125,77 +114,31 @@ export class Fighter extends Container {
     fromY: number,
     attacker?: Fighter,
   ): void {
-    const actualDamage =
-      this.combat.state === FighterState.BLOCK ? damage * 0.2 : damage;
-    this.health -= actualDamage;
-
-    if (attacker && !attacker.isDead && actualDamage > 0) {
-      this.lastAttacker = attacker;
-    }
-
-    if (this.health <= 0 && !this.isDead) {
-      this.health = 0;
-      this.isDead = true;
-      console.log(`Fighter died! Remaining health: 0`);
-    }
-
-    const velocities = this.combat.takeHit(
-      damage,
-      knockback,
-      fromX,
-      fromY,
-      this.x,
-      this.y,
-      this.physics.velocityX,
-      this.physics.velocityY,
-    );
-
-    this.physics.velocityX = velocities.vx;
-    this.physics.velocityY = velocities.vy;
+    FighterActions.takeHit(this, damage, knockback, fromX, fromY, attacker);
   }
 
-  public getCurrentAttack(): {
-    data: AttackData | null;
-    isActive: boolean;
-    angle: number;
-    hasHit: boolean;
-  } {
-    return this.combat.getCurrentAttack();
+  public getCurrentAttack() {
+    return FighterStateManager.getCurrentAttack(this);
   }
 
   public markHit(): void {
-    this.combat.markHit();
+    FighterStateManager.markHit(this);
   }
 
   public switchWeapon(): void {
-    this.weaponManager.switchWeapon();
+    FighterStateManager.switchWeapon(this);
   }
 
   public reset(x: number, y: number): void {
-    this.x = x;
-    this.y = y;
-    this.health = Fighter.CONFIG.maxHealth;
-    this.isDead = false;
-    this.lastAttacker = null;
-    this.physics.reset();
-    this.combat.reset(x);
-    this.weaponManager.reset();
-    this.rotation = this.combat.attackAngle;
-    this.visible = true;
+    FighterStateManager.reset(this, x, y);
   }
 
   public setFacingDirection(targetX: number, targetY: number): void {
-    const dx = targetX - this.x;
-    const dy = targetY - this.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    if (length > 0) {
-      this.combat.attackAngle = Math.atan2(dy, dx);
-      this.rotation = this.combat.attackAngle;
-    }
+    FighterActions.setFacingDirection(this, targetX, targetY);
   }
 
   public getCurrentWeaponState() {
-    return this.currentWeapon.getState();
+    return FighterStateManager.getCurrentWeaponState(this);
   }
 
   get velocityX() {
