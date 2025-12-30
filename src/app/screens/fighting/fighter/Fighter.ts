@@ -18,10 +18,12 @@ export class Fighter extends Container {
   public health: number = Fighter.CONFIG.maxHealth;
   public isDead: boolean = false;
   public lastAttacker: Fighter | null = null;
+  public id: string = "";
+  public name: string = "";
 
   private inputHandler: FighterInput;
   private physics: FighterPhysics;
-  private graphics: FighterGraphics;
+  public graphics: FighterGraphics;
   public combat: FighterCombat;
   public weaponManager: WeaponManager;
 

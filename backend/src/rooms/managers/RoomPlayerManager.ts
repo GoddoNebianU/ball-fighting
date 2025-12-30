@@ -32,8 +32,8 @@ export class RoomPlayerManager {
   private players: Map<string, RoomPlayer> = new Map();
   private maxPlayers: number;
   private readonly PLAYER_RADIUS = 25;
-  private readonly STAGE_WIDTH = 800;
-  private readonly STAGE_HEIGHT = 600;
+  private readonly STAGE_WIDTH = 1200;
+  private readonly STAGE_HEIGHT = 800;
   private readonly MAX_HEALTH = 200;
 
   constructor(maxPlayers: number) {

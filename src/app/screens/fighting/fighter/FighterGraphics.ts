@@ -65,6 +65,12 @@ export class FighterGraphics {
   }
 
   private updateWeaponEffect(): void {
+    // 安全检查：确保武器存在
+    if (!this.fighter.currentWeapon) {
+      this.weaponRenderer.getGraphics().clear();
+      return;
+    }
+
     if (
       this.fighter.state === FighterState.ATTACK &&
       this.fighter.currentAttack

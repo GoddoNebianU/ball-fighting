@@ -6,8 +6,8 @@
 import type { RoomPlayer } from "./RoomPlayerManager";
 
 export class RoomGameLoop {
-  private readonly STAGE_WIDTH = 800;
-  private readonly STAGE_HEIGHT = 600;
+  private readonly STAGE_WIDTH = 1200;
+  private readonly STAGE_HEIGHT = 800;
   private readonly PLAYER_RADIUS = 25;
   private readonly WALK_SPEED = 180;
 

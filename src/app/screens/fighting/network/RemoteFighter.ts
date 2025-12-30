@@ -1,52 +1,53 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Fighter } from "../fighter/Fighter";
 import type { PlayerState } from "./types";
-import { RemoteFighterRenderer } from "./RemoteFighterRenderer";
+import { FighterState } from "../types";
 
-export class RemoteFighter extends Container {
-  public id: string;
-  public name: string;
-  public color: number;
-  public health: number;
-  public isDead: boolean;
-
+/**
+ * 远程玩家 - 直接继承 Fighter，复用完整的渲染和游戏系统
+ * 多人模式中的其他玩家本质上是 Fighter，只是状态由服务器控制
+ */
+export class RemoteFighter extends Fighter {
   private targetPosition: { x: number; y: number };
   private targetRotation: number;
-  private currentRotation: number = 0;
-
-  private body!: Graphics;
-  private nameText!: Text;
-  private healthBar!: Graphics;
-  private renderer: RemoteFighterRenderer;
-
-  private readonly RADIUS = 25;
   private readonly LERP_FACTOR = 0.2;
 
   constructor(state: PlayerState) {
-    super();
+    // 创建 Fighter，使用默认武器
+    super(state.color, []);
 
+    // 同步初始状态
     this.id = state.id;
     this.name = state.name;
-    this.color = state.color;
     this.health = state.health;
     this.isDead = state.isDead;
 
     this.x = state.position.x;
     this.y = state.position.y;
+    this.attackAngle = state.rotation;
 
     this.targetPosition = { ...state.position };
     this.targetRotation = state.rotation;
-    this.currentRotation = state.rotation;
 
-    this.renderer = new RemoteFighterRenderer();
-    this.createGraphics();
-    this.updateVisuals();
+    console.log(
+      `[RemoteFighter] Created: name=${this.name}, pos=(${this.x},${this.y}), visible=${this.visible}, children=${this.children.length}, graphics.container.children=${this.graphics.container.children.length}`,
+    );
   }
 
   syncState(state: PlayerState): void {
     this.targetPosition = { ...state.position };
     this.targetRotation = state.rotation;
-    this.isDead = state.isDead;
     this.health = state.health;
+    this.isDead = state.isDead;
+
+    // 将服务器状态映射到 FighterState
+    const stateMap: Record<string, FighterState> = {
+      idle: FighterState.IDLE,
+      walk: FighterState.WALK,
+      attack: FighterState.ATTACK,
+      block: FighterState.BLOCK,
+      hit: FighterState.HIT,
+    };
+    this.state = stateMap[state.state] || FighterState.IDLE;
   }
 
   updateInterpolation(): void {
@@ -54,50 +55,32 @@ export class RemoteFighter extends Container {
       this.visible = false;
       return;
     }
+    this.visible = true;
 
+    // 位置插值
     const dx = this.targetPosition.x - this.x;
     const dy = this.targetPosition.y - this.y;
 
     this.x += dx * this.LERP_FACTOR;
     this.y += dy * this.LERP_FACTOR;
 
-    let rotDiff = this.targetRotation - this.currentRotation;
+    // 旋转插值
+    let rotDiff = this.targetRotation - this.attackAngle;
     while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
     while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+    this.attackAngle += rotDiff * this.LERP_FACTOR;
 
-    this.currentRotation += rotDiff * this.LERP_FACTOR;
-
-    this.updateVisuals();
-  }
-
-  private createGraphics(): void {
-    this.body = this.renderer.createBody(this.color);
-    this.addChild(this.body);
-
-    this.nameText = this.renderer.createNameText(this.name, this.RADIUS);
-    this.addChild(this.nameText);
-
-    this.healthBar = this.renderer.createHealthBar(this.RADIUS);
-    this.addChild(this.healthBar);
-
-    this.renderer.updateHealthBar(this.healthBar, this.health, this.RADIUS);
-  }
-
-  private updateVisuals(): void {
-    this.renderer.updateBody(
-      this.body,
-      this.color,
-      this.RADIUS,
-      this.currentRotation,
-    );
-    this.renderer.updateHealthBar(this.healthBar, this.health, this.RADIUS);
+    // 更新 Fighter 的渲染系统
+    this.graphics.update();
   }
 
   takeDamageVisual(): void {
-    this.body.alpha = 0.5;
+    this.state = FighterState.HIT;
     setTimeout(() => {
-      this.body.alpha = 1;
-    }, 100);
+      if (!this.isDead) {
+        this.state = FighterState.IDLE;
+      }
+    }, 200);
   }
 
   getPosition(): { x: number; y: number } {
@@ -105,6 +88,6 @@ export class RemoteFighter extends Container {
   }
 
   getRotation(): number {
-    return this.currentRotation;
+    return this.attackAngle;
   }
 }

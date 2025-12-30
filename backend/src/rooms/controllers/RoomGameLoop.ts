@@ -9,6 +9,7 @@ import type { BulletState, PlayerDiedEvent } from "../../types";
 import { RoomPlayerManager } from "../managers/RoomPlayerManager";
 import { RoomGameLoop } from "../managers/RoomGameLoop";
 import { RoomCombat } from "../managers/RoomCombat";
+import { AIDecision } from "../../shared/ai/AIDecision";
 
 export class RoomUpdateLoop {
   private gameInterval: NodeJS.Timeout | null = null;
@@ -175,55 +176,49 @@ export class RoomUpdateLoop {
     }
   }
 
-  private updateAIInput(players: any[]): void {
+  private updateAIInput(
+    players: import("../managers/RoomPlayerManager").RoomPlayer[],
+  ): void {
     players.forEach((ai) => {
       if (!ai.config.isAI || ai.isDead) return;
 
-      // 找到最近的存活玩家
-      let nearestPlayer: any = null;
-      let nearestDistance = Infinity;
+      // 转换为共享的 PlayerState 格式
+      const aiState = {
+        id: ai.id,
+        name: ai.config.name,
+        color: ai.config.color,
+        position: { x: ai.x, y: ai.y },
+        rotation: ai.rotation,
+        health: ai.health,
+        maxHealth: 200,
+        currentWeapon: "",
+        isDead: ai.isDead,
+        state: "idle" as const,
+      };
 
-      players.forEach((other: any) => {
-        if (other.id === ai.id || other.isDead) return;
+      const allPlayers = players.map((p) => ({
+        id: p.id,
+        name: p.config.name,
+        color: p.config.color,
+        position: { x: p.x, y: p.y },
+        rotation: p.rotation,
+        health: p.health,
+        maxHealth: 200,
+        currentWeapon: "",
+        isDead: p.isDead,
+        state: "idle" as const,
+      }));
 
-        const dx = other.x - ai.x;
-        const dy = other.y - ai.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+      // 使用共享的 AI 决策逻辑
+      const input = AIDecision.generateAIInput(aiState, allPlayers);
 
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestPlayer = other;
-        }
-      });
-
-      if (nearestPlayer && nearestDistance < 500) {
-        // 计算移动方向
-        const dx = nearestPlayer.x - ai.x;
-        const dy = nearestPlayer.y - ai.y;
-
-        if (nearestDistance > 80) {
-          // 移动向目标
-          ai.input.up = dy < -20;
-          ai.input.down = dy > 20;
-          ai.input.left = dx < -20;
-          ai.input.right = dx > 20;
-          ai.input.attack = false;
-        } else {
-          // 靠近目标，停止移动并攻击
-          ai.input.up = false;
-          ai.input.down = false;
-          ai.input.left = false;
-          ai.input.right = false;
-          ai.input.attack = Math.random() < 0.1; // 10%概率攻击
-        }
-      } else {
-        // 没有目标，随机移动
-        ai.input.up = false;
-        ai.input.down = false;
-        ai.input.left = false;
-        ai.input.right = false;
-        ai.input.attack = false;
-      }
+      // 更新 AI 输入
+      ai.input.up = input.up;
+      ai.input.down = input.down;
+      ai.input.left = input.left;
+      ai.input.right = input.right;
+      ai.input.attack = input.attack;
+      ai.input.block = input.block;
     });
   }
 }

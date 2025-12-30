@@ -28,11 +28,16 @@ export class NetworkFightingGame extends Container {
 
     this.networkManager = NetworkManager.getInstance();
     this.inputHandler = new NetworkInputHandler();
+
+    // 创建舞台（在初始化时就创建，而不是等到游戏开始）
+    this.stage = new FightingStage();
+    this.addChild(this.stage.container);
+
     this.eventHandler = new NetworkGameEventHandler(
       this.networkManager,
       this.players,
       this.remoteBullets,
-      this,
+      this.stage.container, // 直接使用舞台容器
       this.localPlayerId,
     );
 
@@ -57,9 +62,6 @@ export class NetworkFightingGame extends Container {
 
   private startNetworkGame(): void {
     console.log("[NetworkFightingGame] 开始网络对战（服务器权威模式）");
-
-    this.stage = new FightingStage();
-    this.addChild(this.stage.container);
 
     this.localPlayerId = this.networkManager?.playerId || null;
     console.log("[NetworkFightingGame] 本地玩家 ID:", this.localPlayerId);

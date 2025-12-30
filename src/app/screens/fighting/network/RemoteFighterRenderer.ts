@@ -1,8 +1,15 @@
 import { Graphics, Text } from "pixi.js";
+import {
+  PLAYER_RENDERER_CONFIG,
+  type HealthBarConfig,
+} from "@shared/rendering/PlayerRendererConfig";
+import { RenderUtils, AnimationSystem } from "@shared/rendering/index";
 
 /** RemoteFighter 渲染组件 */
 export class RemoteFighterRenderer {
-  private readonly RADIUS = 25;
+  private readonly RADIUS = PLAYER_RENDERER_CONFIG.radius;
+  private readonly healthBarConfig: HealthBarConfig =
+    PLAYER_RENDERER_CONFIG.healthBar;
 
   public createBody(color: number): Graphics {
     const body = new Graphics();
@@ -11,7 +18,7 @@ export class RemoteFighterRenderer {
     return body;
   }
 
-  public createNameText(name: string, radius: number): Text {
+  public createNameText(name: string): Text {
     const nameText = new Text({
       text: name,
       style: {
@@ -21,13 +28,16 @@ export class RemoteFighterRenderer {
       },
     });
     nameText.anchor.set(0.5);
-    nameText.y = -radius - 15;
+
+    const position = RenderUtils.calculateNameTextPosition();
+    nameText.y = position.y;
+
     return nameText;
   }
 
-  public createHealthBar(radius: number): Graphics {
+  public createHealthBar(): Graphics {
     const healthBar = new Graphics();
-    healthBar.y = -radius - 8;
+    healthBar.y = this.healthBarConfig.yOffset;
     return healthBar;
   }
 
@@ -53,30 +63,37 @@ export class RemoteFighterRenderer {
   public updateHealthBar(
     healthBar: Graphics,
     health: number,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _radius: number,
+    maxHealth: number,
   ): void {
     healthBar.clear();
 
-    const barWidth = 50;
-    const barHeight = 6;
-    const healthPercent = Math.max(0, health / 200);
+    const healthPercent = RenderUtils.normalizeHealthPercent(health, maxHealth);
+    const dims = RenderUtils.calculateHealthBarDimensions(healthPercent);
 
+    // 绘制背景
     healthBar
-      .roundRect(-barWidth / 2, 0, barWidth, barHeight, 3)
-      .fill({ color: 0x333333 });
+      .roundRect(
+        dims.x,
+        dims.y,
+        dims.backgroundWidth,
+        dims.backgroundHeight,
+        this.healthBarConfig.borderRadius,
+      )
+      .fill({ color: this.healthBarConfig.backgroundColor });
 
+    // 绘制血量
     if (healthPercent > 0) {
-      const healthWidth = barWidth * healthPercent;
       const healthColor =
-        healthPercent > 0.5
-          ? 0x44ff44
-          : healthPercent > 0.25
-            ? 0xffaa00
-            : 0xff4444;
+        AnimationSystem.calculateHealthBarColor(healthPercent);
 
       healthBar
-        .roundRect(-barWidth / 2, 0, healthWidth, barHeight, 3)
+        .roundRect(
+          dims.x,
+          dims.y,
+          dims.healthWidth,
+          dims.healthHeight,
+          this.healthBarConfig.borderRadius,
+        )
         .fill({ color: healthColor });
     }
   }

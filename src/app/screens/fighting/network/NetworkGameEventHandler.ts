@@ -84,12 +84,12 @@ export class NetworkGameEventHandler {
 
   private syncGameState(data: GameStateUpdate): void {
     console.log(
-      "[NetworkGameEventHandler] 收到游戏状态更新，玩家数量:",
-      Object.keys(data.players).length,
+      `[NetworkGameEventHandler] 收到状态更新，玩家数量: ${Object.keys(data.players).length}`,
     );
+
     Object.entries(data.players).forEach(([playerId, state]) => {
       console.log(
-        `[NetworkGameEventHandler] 玩家 ${playerId}: ${state.name}, 位置: (${state.position.x}, ${state.position.y}), isDead: ${state.isDead}`,
+        `[NetworkGameEventHandler] 玩家 ${state.name}: pos=(${state.position.x},${state.position.y}), isDead=${state.isDead}, state=${state.state}`,
       );
 
       if (state.isDead) {
@@ -107,14 +107,8 @@ export class NetworkGameEventHandler {
         this.players.set(playerId, player);
         this.container.addChild(player);
 
-        if (playerId === this.localPlayerId) {
-          (
-            player as RemoteFighter & { isLocalPlayer?: boolean }
-          ).isLocalPlayer = true;
-        }
-
         console.log(
-          `[NetworkFightingGame] 创建玩家: ${state.name}${playerId === this.localPlayerId ? " (本地)" : " (远程)"}`,
+          `[NetworkGameEventHandler] 创建玩家: ${state.name}, parent.children: ${this.container.children.length}, container.visible: ${this.container.visible}`,
         );
       }
 
