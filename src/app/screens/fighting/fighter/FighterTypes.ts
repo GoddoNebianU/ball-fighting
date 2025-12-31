@@ -15,6 +15,7 @@ export interface AttackData {
   knockback: number;
   projectile?: boolean;
   projectileSpeed?: number;
+  penetrating?: boolean; // 是否穿透（狙击枪等）
 }
 
 /** 攻击配置 */

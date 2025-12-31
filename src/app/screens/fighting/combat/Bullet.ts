@@ -11,8 +11,10 @@ export class Bullet extends Container {
   public owner: Fighter;
   public lifetime: number = 2000;
   public active: boolean = true;
+  public penetrating: boolean = false; // 是否穿透
 
   private graphics: Graphics;
+  private hitTargets: Set<Fighter> = new Set(); // 已击中的目标（穿透子弹用）
 
   constructor(
     x: number,
@@ -22,6 +24,7 @@ export class Bullet extends Container {
     damage: number,
     knockback: number,
     owner: Fighter,
+    penetrating: boolean = false,
   ) {
     super();
     this.x = x;
@@ -31,6 +34,7 @@ export class Bullet extends Container {
     this.damage = damage;
     this.knockback = knockback;
     this.owner = owner;
+    this.penetrating = penetrating;
 
     this.graphics = new Graphics();
     this.graphics.circle(0, 0, 6).fill({ color: 0xffff00 });
@@ -54,5 +58,15 @@ export class Bullet extends Container {
   public deactivate(): void {
     this.active = false;
     this.visible = false;
+  }
+
+  /** 检查是否已击中该目标 */
+  public hasHit(target: Fighter): boolean {
+    return this.hitTargets.has(target);
+  }
+
+  /** 标记已击中该目标 */
+  public markHit(target: Fighter): void {
+    this.hitTargets.add(target);
   }
 }

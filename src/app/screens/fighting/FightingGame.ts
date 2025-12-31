@@ -105,6 +105,7 @@ export class FightingGame extends Container {
       this.ui,
       this.ai,
       this.players.getAllPlayers(),
+      () => this.onGameOver(), // 游戏结束回调
     );
 
     // 初始化回合显示
@@ -178,5 +179,26 @@ export class FightingGame extends Container {
     setTimeout(() => {
       this.startNextRound();
     }, 2000);
+  }
+
+  /** 游戏结束处理 - 更新比分并准备下一局 */
+  private onGameOver(): void {
+    const aliveFighters = this.players.getAlivePlayers();
+
+    // 更新比分 - 存活者得分
+    if (aliveFighters.length === 1) {
+      const winner = aliveFighters[0];
+      const winnerIndex = this.players.findPlayerIndex(winner);
+      if (winnerIndex !== -1) {
+        this.players.addScore(winnerIndex);
+      }
+    }
+
+    // 更新UI显示的比分
+    const scores = this.players.getAllScores();
+    this.ui.updateScore(scores);
+
+    // 自动开启下一局
+    this.startNextRound();
   }
 }

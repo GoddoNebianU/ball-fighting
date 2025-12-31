@@ -20,6 +20,9 @@ export class GameCollision {
   ): void {
     // 检查每个攻击者对其他所有人的攻击
     for (const attacker of this.fighters) {
+      // 跳过死亡的攻击者
+      if (attacker.isDead) continue;
+
       const attack = attacker.getCurrentAttack();
       if (attack.isActive && attack.data) {
         if (attack.data.projectile && !attack.hasHit) {
@@ -28,7 +31,9 @@ export class GameCollision {
         } else if (!attack.data.projectile) {
           // 近战攻击 - 检查所有目标
           for (const target of this.fighters) {
-            if (attacker === target) continue; // 不攻击自己
+            // 跳过自己和死亡的目标
+            if (attacker === target) continue;
+            if (target.isDead) continue;
 
             const dist = this.getDistance(attacker, target);
             if (dist < attack.data.range + Fighter.CONFIG.radius) {
@@ -47,19 +52,24 @@ export class GameCollision {
     const hw = stageWidth / 2 - Fighter.CONFIG.radius;
     const hh = stageHeight / 2 - Fighter.CONFIG.radius;
 
-    // 限制在舞台范围内
+    // 只限制存活的角色位置
     this.fighters.forEach((p) => {
+      if (p.isDead) return; // 跳过死亡角色
       p.x = Math.max(-hw, Math.min(hw, p.x));
       p.y = Math.max(-hh, Math.min(hh, p.y));
     });
 
-    // 角色间碰撞
+    // 角色间碰撞 - 只处理存活角色之间的碰撞
     const minDist = Fighter.CONFIG.radius * 2;
 
     for (let i = 0; i < this.fighters.length; i++) {
       for (let j = i + 1; j < this.fighters.length; j++) {
         const f1 = this.fighters[i];
         const f2 = this.fighters[j];
+
+        // 跳过死亡角色之间的碰撞
+        if (f1.isDead || f2.isDead) continue;
+
         const dx = f2.x - f1.x;
         const dy = f2.y - f1.y;
         const dist = Math.sqrt(dx * dx + dy * dy);

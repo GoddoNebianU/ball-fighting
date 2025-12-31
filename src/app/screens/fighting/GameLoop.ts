@@ -16,9 +16,11 @@ export class GameLoop {
   private ai: GameAI;
   private players: Fighter[];
   private collision: GameCollision;
+  private onGameOverCallback?: () => void;
 
   private lastTime: number = 0;
   private gameRunning: boolean = false;
+  private gameOverTriggered: boolean = false; // 防止重复触发
 
   constructor(
     bullets: BulletManager,
@@ -28,6 +30,7 @@ export class GameLoop {
     ui: GameUI,
     ai: GameAI,
     players: Fighter[],
+    onGameOverCallback?: () => void,
   ) {
     this.bullets = bullets;
     this.effectManager = effectManager;
@@ -36,6 +39,7 @@ export class GameLoop {
     this.ai = ai;
     this.players = players;
     this.collision = new GameCollision(players);
+    this.onGameOverCallback = onGameOverCallback;
   }
 
   public update(currentTime: number): void {
@@ -117,14 +121,19 @@ export class GameLoop {
     const aliveFighters = this.players.filter((p) => !p.isDead);
 
     if (aliveFighters.length <= 1) {
-      this.gameRunning = false;
+      if (!this.gameOverTriggered) {
+        this.gameOverTriggered = true;
+        this.gameRunning = false;
 
-      // 更新比分 - 存活者得分
-      if (aliveFighters.length === 1) {
-        const winner = aliveFighters[0];
-        const winnerIndex = this.players.indexOf(winner);
-        if (winnerIndex !== -1) {
-          // 更新比分逻辑由外部处理
+        // 显示获胜者
+        this.ui.showWinner();
+
+        // 触发游戏结束回调（2秒后自动开启下一局）
+        if (this.onGameOverCallback) {
+          setTimeout(() => {
+            this.onGameOverCallback?.();
+            this.gameOverTriggered = false; // 重置标志
+          }, 2000);
         }
       }
 

@@ -3,6 +3,7 @@ import { Container, Graphics } from "pixi.js";
 import { Fighter } from "./Fighter";
 import { FighterAnimation } from "./FighterAnimation";
 import { FighterWeaponRenderer } from "./FighterWeaponRenderer";
+import { SpeechBubble } from "./SpeechBubble";
 
 /** 渲染系统 */
 export class FighterGraphics {
@@ -16,6 +17,7 @@ export class FighterGraphics {
 
   private animation: FighterAnimation;
   private weaponRenderer: FighterWeaponRenderer;
+  private speechBubble: SpeechBubble;
 
   constructor(fighter: Fighter, color: number) {
     this.fighter = fighter;
@@ -44,6 +46,10 @@ export class FighterGraphics {
       this.fighter,
       this.weaponGraphics,
     );
+
+    // 创建对话气泡
+    this.speechBubble = new SpeechBubble();
+    this.container.addChild(this.speechBubble.getContainer());
   }
 
   private initCharacter(color: number): void {
@@ -86,5 +92,11 @@ export class FighterGraphics {
   public update(): void {
     this.animation.update();
     this.weaponRenderer.update();
+    this.speechBubble.update(16); // 假设60fps,每帧约16ms
+  }
+
+  /** 显示对话 */
+  public showSpeech(message: string): void {
+    this.speechBubble.show(message);
   }
 }

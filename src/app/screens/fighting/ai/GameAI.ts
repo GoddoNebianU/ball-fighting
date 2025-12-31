@@ -14,6 +14,8 @@ interface AIController {
   idleTimer: number;
   isIdling: boolean;
   weaponSwitchCooldown: number;
+  speechTimer: number; // 说话计时器
+  speechCooldown: number; // 说话冷却
 }
 
 /** AI系统 - 支持动态数量的AI */
@@ -40,6 +42,9 @@ export class GameAI {
     const aiPlayers = this.game.players.getAIPlayers();
 
     aiPlayers.forEach((ai) => {
+      // 随机8-12秒的说话间隔
+      const speechInterval = 8000 + Math.random() * 4000;
+
       this.aiControllers.set(ai, {
         decision: new AIDecision(),
         decisionCooldown: 0,
@@ -47,6 +52,8 @@ export class GameAI {
         idleTimer: 0,
         isIdling: false,
         weaponSwitchCooldown: 0,
+        speechTimer: speechInterval, // 初始计时器
+        speechCooldown: 0,
       });
     });
   }
@@ -134,10 +141,26 @@ export class GameAI {
     controller.reactionDelay -= deltaTime;
     controller.idleTimer -= deltaTime;
     controller.weaponSwitchCooldown -= deltaTime;
+    controller.speechTimer -= deltaTime;
+    controller.speechCooldown -= deltaTime;
 
     // 防止计时器变成负数
     if (controller.decisionCooldown < 0) controller.decisionCooldown = 0;
     if (controller.reactionDelay < 0) controller.reactionDelay = 0;
+    if (controller.speechTimer < 0) controller.speechTimer = 0;
+    if (controller.speechCooldown < 0) controller.speechCooldown = 0;
+
+    // 处理AI说话逻辑
+    if (controller.speechTimer <= 0 && controller.speechCooldown <= 0) {
+      // 75%概率显示"hello"
+      if (Math.random() < 0.75) {
+        ai.showSpeech("hello");
+      }
+
+      // 重置计时器 (随机8-12秒)
+      controller.speechTimer = 8000 + Math.random() * 4000;
+      controller.speechCooldown = 500; // 500ms冷却，避免重复触发
+    }
     if (controller.idleTimer < 0) controller.idleTimer = 0;
     if (controller.weaponSwitchCooldown < 0)
       controller.weaponSwitchCooldown = 0;

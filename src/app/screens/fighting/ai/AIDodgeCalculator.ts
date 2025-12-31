@@ -54,6 +54,12 @@ export class AIDodgeCalculator {
     ai.input.right = false;
     ai.input.block = false;
 
+    // 地图边界 (1200x800)
+    const stageWidth = 1200;
+    const stageHeight = 800;
+    const halfWidth = stageWidth / 2 - Fighter.CONFIG.radius - 50; // 留50px缓冲
+    const halfHeight = stageHeight / 2 - Fighter.CONFIG.radius - 50;
+
     // 计算子弹速度向量
     const bulletSpeed = Math.sqrt(
       bullet.vx * bullet.vx + bullet.vy * bullet.vy,
@@ -110,6 +116,36 @@ export class AIDodgeCalculator {
     if (dodgeLength > 0) {
       targetDodgeX /= dodgeLength;
       targetDodgeY /= dodgeLength;
+    }
+
+    // 检查是否靠近墙壁，调整躲避方向
+    // 如果在左边界附近，禁止向左移动
+    if (ai.x < -halfWidth && targetDodgeX < 0) {
+      targetDodgeX = Math.abs(targetDodgeX); // 反转为向右
+    }
+    // 如果在右边界附近，禁止向右移动
+    if (ai.x > halfWidth && targetDodgeX > 0) {
+      targetDodgeX = -Math.abs(targetDodgeX); // 反转为向左
+    }
+    // 如果在上边界附近，禁止向上移动
+    if (ai.y < -halfHeight && targetDodgeY < 0) {
+      targetDodgeY = Math.abs(targetDodgeY); // 反转为向下
+    }
+    // 如果在下边界附近，禁止向下移动
+    if (ai.y > halfHeight && targetDodgeY > 0) {
+      targetDodgeY = -Math.abs(targetDodgeY); // 反转为向上
+    }
+
+    // 如果角落情况（两个方向都被禁止），优先沿子弹方向前后移动
+    const nearLeftWall = ai.x < -halfWidth;
+    const nearRightWall = ai.x > halfWidth;
+    const nearTopWall = ai.y < -halfHeight;
+    const nearBottomWall = ai.y > halfHeight;
+
+    // 如果在角落且两个方向都受阻，沿子弹方向移动
+    if ((nearLeftWall || nearRightWall) && (nearTopWall || nearBottomWall)) {
+      targetDodgeX = bulletDirX; // 沿子弹方向
+      targetDodgeY = bulletDirY;
     }
 
     console.log(

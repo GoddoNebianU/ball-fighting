@@ -25,6 +25,7 @@ export class BulletManager {
       attackData.damage,
       attackData.knockback,
       shooter,
+      attackData.penetrating || false, // 传递穿透标志
     );
     this.bullets.push(bullet);
     this.game.addChild(bullet);
@@ -59,6 +60,9 @@ export class BulletManager {
       for (const target of allFighters) {
         if (target === bullet.owner) continue; // 不击中自己
 
+        // 跳过已击中的目标（防止穿透子弹在同一帧内多次伤害同一目标）
+        if (bullet.hasHit(target)) continue;
+
         const dx = bullet.x - target.x;
         const dy = bullet.y - target.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -72,9 +76,17 @@ export class BulletManager {
             bullet.owner.y,
             bullet.owner,
           );
-          bullet.deactivate();
-          this.removeBullet(i);
-          break; // 一颗子弹只击中一个目标
+
+          // 标记已击中该目标
+          bullet.markHit(target);
+
+          // 非穿透子弹击中后立即销毁
+          if (!bullet.penetrating) {
+            bullet.deactivate();
+            this.removeBullet(i);
+            break; // 一颗子弹只击中一个目标
+          }
+          // 穿透子弹继续飞行,可以击中多个目标
         }
       }
     }

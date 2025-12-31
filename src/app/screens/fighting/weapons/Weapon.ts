@@ -7,6 +7,7 @@ export interface WeaponData {
   knockback: number;
   projectile?: boolean;
   projectileSpeed?: number;
+  penetrating?: boolean; // 是否穿透（狙击枪等）
 }
 
 /** 武器状态 */

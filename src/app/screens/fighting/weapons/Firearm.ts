@@ -77,6 +77,7 @@ export class Sniper extends Weapon {
       knockback: 200,
       projectile: true,
       projectileSpeed: 2000,
+      penetrating: true, // 狙击枪可以穿透多个目标
     });
   }
 

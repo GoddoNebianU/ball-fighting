@@ -157,4 +157,9 @@ export class Fighter extends Container {
   set velocityY(value: number) {
     this.physics.velocityY = value;
   }
+
+  /** 显示对话 */
+  public showSpeech(message: string): void {
+    this.graphics.showSpeech(message);
+  }
 }
