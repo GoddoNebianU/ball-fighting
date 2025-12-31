@@ -35,6 +35,7 @@ export class FightingGame extends Container {
   private ai: GameAI;
   public players: PlayerManager;
   private gameLoop: GameLoop;
+  public speechBubblesContainer: Container; // 对话气泡容器，不受角色旋转影响
 
   constructor(mode: GameMode = GameMode.VS_CPU) {
     super();
@@ -43,42 +44,42 @@ export class FightingGame extends Container {
     // 配置玩家 - 可以轻松添加或删除玩家
     const playerConfigs: PlayerConfig[] = [
       {
-        name: "P1",
+        name: "Alex",
         color: 0x4488ff,
         startX: 0,
         startY: 300,
         isAI: false,
       }, // 玩家1 (下方中央)
       {
-        name: "E1",
+        name: "Bob",
         color: 0xff6644,
         startX: -200,
         startY: -200,
         isAI: true,
       }, // 敌人1 (左上)
       {
-        name: "E2",
+        name: "Charlie",
         color: 0x44ff44,
         startX: 0,
         startY: -250,
         isAI: true,
       }, // 敌人2 (中上)
       {
-        name: "E3",
+        name: "Diana",
         color: 0xff44ff,
         startX: 200,
         startY: -200,
         isAI: true,
       }, // 敌人3 (右上)
       {
-        name: "E4",
+        name: "Eric",
         color: 0xffff44,
         startX: -300,
         startY: 0,
         isAI: true,
       }, // 敌人4 (左中)
       {
-        name: "E5",
+        name: "Fiona",
         color: 0x44ffff,
         startX: 300,
         startY: 0,
@@ -95,6 +96,7 @@ export class FightingGame extends Container {
     this.effectManager = new EffectManager(this);
     this.healthPacks = new HealthPackManager(this);
     this.ai = new GameAI(this);
+    this.speechBubblesContainer = new Container(); // 创建对话气泡容器
 
     // 创建游戏循环系统
     this.gameLoop = new GameLoop(
@@ -112,6 +114,12 @@ export class FightingGame extends Container {
     this.ui.updateRound(this.currentRound);
 
     this.addChildren();
+
+    // 将所有对话气泡添加到独立容器
+    this.players.getAllPlayers().forEach((player) => {
+      const bubble = player.getSpeechBubble().getContainer();
+      this.speechBubblesContainer.addChild(bubble);
+    });
   }
 
   private addChildren(): void {
@@ -119,6 +127,7 @@ export class FightingGame extends Container {
     this.players.getAllPlayers().forEach((player) => {
       this.addChild(player);
     });
+    this.addChild(this.speechBubblesContainer); // 添加对话气泡容器，在UI之前
     this.addChild(this.ui.container);
   }
 

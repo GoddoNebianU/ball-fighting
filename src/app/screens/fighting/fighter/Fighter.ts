@@ -162,4 +162,9 @@ export class Fighter extends Container {
   public showSpeech(message: string): void {
     this.graphics.showSpeech(message);
   }
+
+  /** 获取对话气泡 */
+  public getSpeechBubble() {
+    return this.graphics.getSpeechBubble();
+  }
 }

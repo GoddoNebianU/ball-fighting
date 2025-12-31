@@ -127,4 +127,17 @@ export class PlayerManager {
   public getAllPlayerNames(): string[] {
     return this.configs.map((config) => config.name);
   }
+
+  /** 获取玩家颜色 */
+  public getPlayerColor(index: number): number {
+    if (index >= 0 && index < this.configs.length) {
+      return this.configs[index].color;
+    }
+    return 0xffffff;
+  }
+
+  /** 获取所有玩家颜色 */
+  public getAllPlayerColors(): number[] {
+    return this.configs.map((config) => config.color);
+  }
 }

@@ -5,6 +5,7 @@ import { AIStateExecutor } from "./AIStateExecutor";
 import { AIHealthPackBehavior } from "./AIHealthPackBehavior";
 import { AIBulletDodge } from "./AIBulletDodge";
 import { AIAimController } from "./AIAimController";
+import { GameClient } from "../network/GameClient";
 
 /** AI控制器状态 */
 interface AIController {
@@ -26,6 +27,7 @@ export class GameAI {
   private bulletDodge: AIBulletDodge;
   private aimController: AIAimController;
   private aiControllers: Map<Fighter, AIController> = new Map();
+  private gameClient: GameClient;
 
   constructor(game: FightingGame) {
     this.game = game;
@@ -33,6 +35,7 @@ export class GameAI {
     this.healthPackBehavior = new AIHealthPackBehavior();
     this.bulletDodge = new AIBulletDodge();
     this.aimController = new AIAimController();
+    this.gameClient = new GameClient();
 
     // 为每个AI玩家创建控制器
     this.initializeAIControllers();
@@ -152,9 +155,26 @@ export class GameAI {
 
     // 处理AI说话逻辑
     if (controller.speechTimer <= 0 && controller.speechCooldown <= 0) {
-      // 75%概率显示"hello"
+      // 75%概率显示对话
       if (Math.random() < 0.75) {
-        ai.showSpeech("hello");
+        // 获取玩家名称
+        const playerIndex = this.game.players.findPlayerIndex(ai);
+        const playerName =
+          playerIndex !== -1
+            ? this.game.players.getPlayerName(playerIndex)
+            : "AI";
+
+        // 异步调用后端API生成对话
+        this.gameClient
+          .generateAIChat(this.game, playerName)
+          .then((message) => {
+            if (message) {
+              ai.showSpeech(message);
+            }
+          })
+          .catch((error) => {
+            console.error("获取AI对话失败:", error);
+          });
       }
 
       // 重置计时器 (随机8-12秒)

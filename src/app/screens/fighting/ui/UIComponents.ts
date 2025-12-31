@@ -25,6 +25,7 @@ export class UIComponents {
 
   constructor(game: FightingGame) {
     const names = game.players.getAllPlayerNames();
+    const colors = game.players.getAllPlayerColors();
     const playerCount = game.players.getPlayerCount();
 
     this.timeText = new Text({
@@ -33,51 +34,51 @@ export class UIComponents {
     });
     this.p1NameText = new Text({
       text: names[0] || "P1",
-      style: { fontSize: 24, fill: 0x4488ff, fontWeight: "bold" },
+      style: { fontSize: 24, fill: colors[0] || 0x4488ff, fontWeight: "bold" },
     });
     this.p2NameText = new Text({
       text: names[1] || "P2",
-      style: { fontSize: 24, fill: 0xffff00, fontWeight: "bold" },
+      style: { fontSize: 24, fill: colors[1] || 0xffff00, fontWeight: "bold" },
     });
     this.p3NameText = new Text({
       text: names[2] || "E1",
-      style: { fontSize: 24, fill: 0xff6644, fontWeight: "bold" },
+      style: { fontSize: 24, fill: colors[2] || 0xff6644, fontWeight: "bold" },
     });
     this.p4NameText = new Text({
       text: names[3] || "E2",
-      style: { fontSize: 24, fill: 0x44ff44, fontWeight: "bold" },
+      style: { fontSize: 24, fill: colors[3] || 0x44ff44, fontWeight: "bold" },
     });
     this.p5NameText = new Text({
       text: names[4] || "E3",
-      style: { fontSize: 24, fill: 0xff44ff, fontWeight: "bold" },
+      style: { fontSize: 24, fill: colors[4] || 0xff44ff, fontWeight: "bold" },
     });
     this.p6NameText = new Text({
       text: names[5] || "E4",
-      style: { fontSize: 24, fill: 0xffff44, fontWeight: "bold" },
+      style: { fontSize: 24, fill: colors[5] || 0xffff44, fontWeight: "bold" },
     });
     this.p1ScoreText = new Text({
       text: "0",
-      style: { fontSize: 36, fill: 0x4488ff, fontWeight: "bold" },
+      style: { fontSize: 36, fill: colors[0] || 0x4488ff, fontWeight: "bold" },
     });
     this.p2ScoreText = new Text({
       text: "0",
-      style: { fontSize: 36, fill: 0xffff00, fontWeight: "bold" },
+      style: { fontSize: 36, fill: colors[1] || 0xffff00, fontWeight: "bold" },
     });
     this.p3ScoreText = new Text({
       text: "0",
-      style: { fontSize: 36, fill: 0xff6644, fontWeight: "bold" },
+      style: { fontSize: 36, fill: colors[2] || 0xff6644, fontWeight: "bold" },
     });
     this.p4ScoreText = new Text({
       text: "0",
-      style: { fontSize: 36, fill: 0x44ff44, fontWeight: "bold" },
+      style: { fontSize: 36, fill: colors[3] || 0x44ff44, fontWeight: "bold" },
     });
     this.p5ScoreText = new Text({
       text: "0",
-      style: { fontSize: 36, fill: 0xff44ff, fontWeight: "bold" },
+      style: { fontSize: 36, fill: colors[4] || 0xff44ff, fontWeight: "bold" },
     });
     this.p6ScoreText = new Text({
       text: "0",
-      style: { fontSize: 36, fill: 0xffff44, fontWeight: "bold" },
+      style: { fontSize: 36, fill: colors[5] || 0xffff44, fontWeight: "bold" },
     });
     this.roundText = new Text({
       text: "ROUND 1",
@@ -194,11 +195,11 @@ export class UIComponents {
     this.controlHint.y = FightingGame.CONFIG.stageHeight / 2 - 50;
 
     this.p1WeaponText.anchor.set(0.5);
-    this.p1WeaponText.x = -FightingGame.CONFIG.stageWidth / 2 + 80;
-    this.p1WeaponText.y = -FightingGame.CONFIG.stageHeight / 2 + 110;
+    this.p1WeaponText.x = 0; // 中上位置
+    this.p1WeaponText.y = -FightingGame.CONFIG.stageHeight / 2 + 80;
 
     this.p1AmmoText.anchor.set(0.5);
-    this.p1AmmoText.x = -FightingGame.CONFIG.stageWidth / 2 + 80;
-    this.p1AmmoText.y = -FightingGame.CONFIG.stageHeight / 2 + 135;
+    this.p1AmmoText.x = 0; // 中上位置
+    this.p1AmmoText.y = -FightingGame.CONFIG.stageHeight / 2 + 105;
   }
 }

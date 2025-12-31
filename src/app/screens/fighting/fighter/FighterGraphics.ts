@@ -47,9 +47,14 @@ export class FighterGraphics {
       this.weaponGraphics,
     );
 
-    // 创建对话气泡
+    // 创建对话气泡（不添加到Fighter容器，而是让调用者管理）
     this.speechBubble = new SpeechBubble();
-    this.container.addChild(this.speechBubble.getContainer());
+    this.speechBubble.setTarget(this.fighter); // 设置追踪目标
+  }
+
+  /** 获取对话气泡，由外部管理 */
+  public getSpeechBubble(): SpeechBubble {
+    return this.speechBubble;
   }
 
   private initCharacter(color: number): void {
