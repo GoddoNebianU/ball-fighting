@@ -7,7 +7,6 @@ import { PausePopup } from "../../popups/PausePopup";
 import { SettingsPopup } from "../../popups/SettingsPopup";
 import { Button } from "../../ui/Button";
 
-import { Bouncer } from "./Bouncer";
 import { FightingScreen } from "../fighting";
 
 /** The screen that holds the app */
@@ -18,18 +17,13 @@ export class MainScreen extends Container {
   public mainContainer: Container;
   private pauseButton: FancyButton;
   private settingsButton: FancyButton;
-  private addButton: FancyButton;
-  private removeButton: FancyButton;
   private fightingButton: Button;
-  private bouncer: Bouncer;
-  private paused = false;
 
   constructor() {
     super();
 
     this.mainContainer = new Container();
     this.addChild(this.mainContainer);
-    this.bouncer = new Bouncer();
 
     const buttonAnimations = {
       hover: {
@@ -65,22 +59,6 @@ export class MainScreen extends Container {
     );
     this.addChild(this.settingsButton);
 
-    this.addButton = new Button({
-      text: "Add",
-      width: 175,
-      height: 110,
-    });
-    this.addButton.onPress.connect(() => this.bouncer.add());
-    this.addChild(this.addButton);
-
-    this.removeButton = new Button({
-      text: "Remove",
-      width: 175,
-      height: 110,
-    });
-    this.removeButton.onPress.connect(() => this.bouncer.remove());
-    this.addChild(this.removeButton);
-
     this.fightingButton = new Button({
       text: "FIGHT!",
       width: 200,
@@ -96,20 +74,17 @@ export class MainScreen extends Container {
   /** Update the screen */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public update(_time: Ticker) {
-    if (this.paused) return;
-    this.bouncer.update();
+    // bouncer 已移除
   }
 
   /** Pause gameplay - automatically fired when a popup is presented */
   public async pause() {
     this.mainContainer.interactiveChildren = false;
-    this.paused = true;
   }
 
   /** Resume gameplay */
   public async resume() {
     this.mainContainer.interactiveChildren = true;
-    this.paused = false;
   }
 
   /** Fully reset */
@@ -126,22 +101,13 @@ export class MainScreen extends Container {
     this.pauseButton.y = 30;
     this.settingsButton.x = width - 30;
     this.settingsButton.y = 30;
-    this.removeButton.x = width / 2 - 100;
-    this.removeButton.y = height - 75;
-    this.addButton.x = width / 2 + 100;
-    this.addButton.y = height - 75;
     this.fightingButton.x = width / 2 - 100;
     this.fightingButton.y = height / 2;
-
-    this.bouncer.resize(width, height);
   }
 
   /** Show screen with animations */
   public async show(): Promise<void> {
     engine().audio.bgm.play("main/sounds/bgm-main.mp3", { volume: 0.5 });
-
-    // 直接进入格斗游戏
-    this.startFightingGame();
   }
 
   /** Hide screen with animations */

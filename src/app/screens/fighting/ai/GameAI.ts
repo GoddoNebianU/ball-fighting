@@ -4,6 +4,7 @@ import { AIDecision } from "./AIDecision";
 import { AIStateExecutor } from "./AIStateExecutor";
 import { AIHealthPackBehavior } from "./AIHealthPackBehavior";
 import { AIBulletDodge } from "./AIBulletDodge";
+import { AIAimController } from "./AIAimController";
 
 /** AI控制器状态 */
 interface AIController {
@@ -13,13 +14,6 @@ interface AIController {
   idleTimer: number;
   isIdling: boolean;
   weaponSwitchCooldown: number;
-  // PID瞄准控制器状态
-  pidAim: {
-    integralX: number; // X方向积分累积
-    integralY: number; // Y方向积分累积
-    lastErrorX: number; // 上次X方向误差(用于微分)
-    lastErrorY: number; // 上次Y方向误差(用于微分)
-  };
 }
 
 /** AI系统 - 支持动态数量的AI */
@@ -28,6 +22,7 @@ export class GameAI {
   private stateExecutor: AIStateExecutor;
   private healthPackBehavior: AIHealthPackBehavior;
   private bulletDodge: AIBulletDodge;
+  private aimController: AIAimController;
   private aiControllers: Map<Fighter, AIController> = new Map();
 
   constructor(game: FightingGame) {
@@ -35,6 +30,7 @@ export class GameAI {
     this.stateExecutor = new AIStateExecutor();
     this.healthPackBehavior = new AIHealthPackBehavior();
     this.bulletDodge = new AIBulletDodge();
+    this.aimController = new AIAimController();
 
     // 为每个AI玩家创建控制器
     this.initializeAIControllers();
@@ -51,12 +47,6 @@ export class GameAI {
         idleTimer: 0,
         isIdling: false,
         weaponSwitchCooldown: 0,
-        pidAim: {
-          integralX: 0,
-          integralY: 0,
-          lastErrorX: 0,
-          lastErrorY: 0,
-        },
       });
     });
   }
@@ -122,7 +112,7 @@ export class GameAI {
     const targetDistance = bestDist;
 
     // AI使用预判瞄准面向目标
-    this.aimAtTargetWithPrediction(ai, target, targetDistance);
+    this.aimController.aimAtTargetWithPrediction(ai, target, targetDistance);
 
     // 计算方向
     const dx = target.x - ai.x;
@@ -276,105 +266,6 @@ export class GameAI {
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  /** PID预判瞄准 - 使用PID控制器智能追踪目标 */
-  private aimAtTargetWithPrediction(
-    ai: Fighter,
-    target: Fighter,
-    currentDistance: number,
-  ): void {
-    const controller = this.aiControllers.get(ai);
-    if (!controller) return;
-
-    // 获取当前武器数据
-    const weaponData = ai.currentWeapon.getData();
-
-    // 只有投射物武器才需要预判
-    if (!weaponData.projectile) {
-      ai.setFacingDirection(target.x, target.y);
-      return;
-    }
-
-    // 获取子弹速度
-    const bulletSpeed = weaponData.projectileSpeed || 800;
-    const timeToImpact = currentDistance / bulletSpeed;
-
-    // 计算目标速度
-    const targetSpeed = Math.sqrt(
-      target.velocityX * target.velocityX + target.velocityY * target.velocityY,
-    );
-
-    // 如果目标几乎静止,直接瞄准目标位置,不使用PID
-    if (targetSpeed < 10) {
-      // 目标静止,清零PID累积误差
-      controller.pidAim.integralX = 0;
-      controller.pidAim.integralY = 0;
-      controller.pidAim.lastErrorX = 0;
-      controller.pidAim.lastErrorY = 0;
-
-      // 直接瞄准目标当前位置
-      ai.setFacingDirection(target.x, target.y);
-      return;
-    }
-
-    // PID参数 - 只在目标移动时使用
-    const kp = 1.0; // 比例系数: 当前误差权重
-    const ki = 0.03; // 积分系数: 历史累积误差权重(用于追踪持续移动目标)
-    const kd = 0.1; // 微分系数: 误差变化率权重(用于预测移动趋势)
-
-    // 计算目标预测位置(基础预测)
-    const predictedX = target.x + target.velocityX * timeToImpact;
-    const predictedY = target.y + target.velocityY * timeToImpact;
-
-    // 计算当前误差(目标位置 - AI当前位置)
-    const errorX = predictedX - ai.x;
-    const errorY = predictedY - ai.y;
-
-    // P项: 比例控制 - 当前误差
-    const pX = errorX * kp;
-    const pY = errorY * kp;
-
-    // I项: 积分控制 - 累积误差
-    // 限制积分项范围,防止积分饱和
-    const integralLimit = 50;
-    controller.pidAim.integralX += errorX * ki;
-    controller.pidAim.integralY += errorY * ki;
-    controller.pidAim.integralX = Math.max(
-      -integralLimit,
-      Math.min(integralLimit, controller.pidAim.integralX),
-    );
-    controller.pidAim.integralY = Math.max(
-      -integralLimit,
-      Math.min(integralLimit, controller.pidAim.integralY),
-    );
-
-    // D项: 微分控制 - 误差变化率
-    const dX = (errorX - controller.pidAim.lastErrorX) * kd;
-    const dY = (errorY - controller.pidAim.lastErrorY) * kd;
-
-    // 保存当前误差供下次使用
-    controller.pidAim.lastErrorX = errorX;
-    controller.pidAim.lastErrorY = errorY;
-
-    // PID输出: 目标偏移量
-    const aimOffsetX = pX + controller.pidAim.integralX + dX;
-    const aimOffsetY = pY + controller.pidAim.integralY + dY;
-
-    // 计算最终瞄准位置
-    const finalAimX = ai.x + aimOffsetX;
-    const finalAimY = ai.y + aimOffsetY;
-
-    // 调试日志
-    const aiIndex = this.game.players.findPlayerIndex(ai);
-    if (Math.random() < 0.01) {
-      console.log(
-        `[AI${aiIndex}] PID aim - dist: ${currentDistance.toFixed(0)}, targetSpeed: ${targetSpeed.toFixed(0)}, PID: P(${pX.toFixed(0)},${pY.toFixed(0)}) I(${controller.pidAim.integralX.toFixed(0)},${controller.pidAim.integralY.toFixed(0)}) D(${dX.toFixed(0)},${dY.toFixed(0)})`,
-      );
-    }
-
-    // 向最终瞄准位置瞄准
-    ai.setFacingDirection(finalAimX, finalAimY);
-  }
-
   public reset(): void {
     // 重置所有AI控制器
     this.aiControllers.forEach((controller) => {
@@ -384,13 +275,9 @@ export class GameAI {
       controller.idleTimer = 0;
       controller.isIdling = false;
       controller.weaponSwitchCooldown = 1000;
-      // 重置PID瞄准状态
-      controller.pidAim.integralX = 0;
-      controller.pidAim.integralY = 0;
-      controller.pidAim.lastErrorX = 0;
-      controller.pidAim.lastErrorY = 0;
     });
 
+    this.aimController.reset();
     this.healthPackBehavior.reset();
   }
 }

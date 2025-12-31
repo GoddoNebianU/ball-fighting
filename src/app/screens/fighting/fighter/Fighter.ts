@@ -5,9 +5,9 @@ import { FighterPhysics } from "./FighterPhysics";
 import { FighterState } from "../types";
 import { FighterCombat } from "./FighterCombat";
 import { WeaponManager, Weapon } from "../weapons";
-import { AttackData } from "./FighterTypes";
 import { FighterConfig } from "./FighterConfig";
 import { FighterInput } from "./FighterInput";
+import { FighterController } from "./FighterController";
 
 /** 子弹类 */
 export { Bullet } from "../combat/Bullet";
@@ -23,10 +23,11 @@ export class Fighter extends Container {
   private inputHandler: FighterInput;
 
   // 子系统
-  private physics: FighterPhysics;
-  private graphics: FighterGraphics;
+  public physics: FighterPhysics;
   public combat: FighterCombat;
   public weaponManager: WeaponManager;
+  private graphics: FighterGraphics;
+  private controller: FighterController;
 
   constructor(color: number = 0xffffff, weapons?: Weapon[]) {
     super();
@@ -38,6 +39,7 @@ export class Fighter extends Container {
       weapons || WeaponManager.createDefaultWeapons(),
     );
     this.inputHandler = new FighterInput(this.combat);
+    this.controller = new FighterController(this);
 
     this.addChild(this.graphics.container);
   }
@@ -77,7 +79,10 @@ export class Fighter extends Container {
     this.combat.updateAttack(deltaTime);
 
     if (this.combat.canAct) {
-      this.updateAttackDirection();
+      this.controller.updateAttackDirection(
+        this.inputHandler.updateAttackDirection(),
+      );
+
       this.physics.update(deltaTime);
 
       const currentWeaponData = this.currentWeapon.getData();
@@ -99,23 +104,8 @@ export class Fighter extends Container {
     this.graphics.update();
   }
 
-  private updateAttackDirection(): void {
-    const { dx, dy } = this.inputHandler.updateAttackDirection();
-
-    if (dx !== 0 || dy !== 0) {
-      this.rotation = this.combat.attackAngle;
-    }
-  }
-
   public startAttack(): void {
-    const weapon = this.currentWeapon;
-    const weaponData = weapon.getData();
-
-    if (!weapon.shoot()) {
-      return;
-    }
-
-    this.combat.startAttackFromWeapon(weaponData);
+    this.controller.startAttack();
   }
 
   public takeHit(
@@ -125,77 +115,31 @@ export class Fighter extends Container {
     fromY: number,
     attacker?: Fighter,
   ): void {
-    const actualDamage =
-      this.combat.state === FighterState.BLOCK ? damage * 0.2 : damage;
-    this.health -= actualDamage;
-
-    if (attacker && !attacker.isDead && actualDamage > 0) {
-      this.lastAttacker = attacker;
-    }
-
-    if (this.health <= 0 && !this.isDead) {
-      this.health = 0;
-      this.isDead = true;
-      console.log(`Fighter died! Remaining health: 0`);
-    }
-
-    const velocities = this.combat.takeHit(
-      damage,
-      knockback,
-      fromX,
-      fromY,
-      this.x,
-      this.y,
-      this.physics.velocityX,
-      this.physics.velocityY,
-    );
-
-    this.physics.velocityX = velocities.vx;
-    this.physics.velocityY = velocities.vy;
+    this.controller.takeHit(damage, knockback, fromX, fromY, attacker);
   }
 
-  public getCurrentAttack(): {
-    data: AttackData | null;
-    isActive: boolean;
-    angle: number;
-    hasHit: boolean;
-  } {
-    return this.combat.getCurrentAttack();
+  public getCurrentAttack() {
+    return this.controller.getCurrentAttack();
   }
 
   public markHit(): void {
-    this.combat.markHit();
+    this.controller.markHit();
   }
 
   public switchWeapon(): void {
-    this.weaponManager.switchWeapon();
+    this.controller.switchWeapon();
   }
 
   public reset(x: number, y: number): void {
-    this.x = x;
-    this.y = y;
-    this.health = Fighter.CONFIG.maxHealth;
-    this.isDead = false;
-    this.lastAttacker = null;
-    this.physics.reset();
-    this.combat.reset(x);
-    this.weaponManager.reset();
-    this.rotation = this.combat.attackAngle;
-    this.visible = true;
+    this.controller.reset(x, y);
   }
 
   public setFacingDirection(targetX: number, targetY: number): void {
-    const dx = targetX - this.x;
-    const dy = targetY - this.y;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    if (length > 0) {
-      this.combat.attackAngle = Math.atan2(dy, dx);
-      this.rotation = this.combat.attackAngle;
-    }
+    this.controller.setFacingDirection(targetX, targetY);
   }
 
   public getCurrentWeaponState() {
-    return this.currentWeapon.getState();
+    return this.controller.getCurrentWeaponState();
   }
 
   get velocityX() {
