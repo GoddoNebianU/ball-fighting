@@ -7,7 +7,7 @@ export class SpeechBubble {
   private text: Text;
   private visible: boolean = false;
   private hideTimer: number = 0;
-  private displayDuration: number = 2000; // 显示2秒
+  private displayDuration: number = 5000; // 显示5秒
 
   // 平滑动画相关
   private targetY: number = -50;

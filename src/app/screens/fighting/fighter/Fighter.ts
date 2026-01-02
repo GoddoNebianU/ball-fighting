@@ -1,5 +1,4 @@
 import { Container } from "pixi.js";
-
 import { FighterGraphics } from "./FighterGraphics";
 import { FighterPhysics } from "./FighterPhysics";
 import { FighterState } from "../types";
@@ -9,162 +8,134 @@ import { FighterConfig } from "./FighterConfig";
 import { FighterInput } from "./FighterInput";
 import { FighterController } from "./FighterController";
 
-/** 子弹类 */
 export { Bullet } from "../combat/Bullet";
 
-/** 角色类 - 俯视角 */
 export class Fighter extends Container {
-  public static readonly CONFIG = FighterConfig.CONFIG;
-
-  public health: number = Fighter.CONFIG.maxHealth;
-  public isDead: boolean = false;
-  public lastAttacker: Fighter | null = null;
+  static readonly CONFIG = FighterConfig.CONFIG;
+  health = Fighter.CONFIG.maxHealth;
+  isDead = false;
+  lastAttacker: Fighter | null = null;
+  name: string;
 
   private inputHandler: FighterInput;
-
-  // 子系统
-  public physics: FighterPhysics;
-  public combat: FighterCombat;
-  public weaponManager: WeaponManager;
+  physics: FighterPhysics;
+  combat: FighterCombat;
+  weaponManager: WeaponManager;
   private graphics: FighterGraphics;
   private controller: FighterController;
 
-  constructor(color: number = 0xffffff, weapons?: Weapon[]) {
+  constructor(name: string, color = 0xffffff, weapons?: Weapon[]) {
     super();
-
+    this.name = name;
     this.combat = new FighterCombat();
     this.physics = new FighterPhysics(this);
-    this.graphics = new FighterGraphics(this, color);
+    this.graphics = new FighterGraphics(this, color, name);
     this.weaponManager = new WeaponManager(
       weapons || WeaponManager.createDefaultWeapons(),
     );
     this.inputHandler = new FighterInput(this.combat);
     this.controller = new FighterController(this);
-
     this.addChild(this.graphics.container);
   }
 
-  public get input() {
+  get input() {
     return this.inputHandler.input;
   }
-
-  // 公开状态访问
-  public get state(): FighterState {
+  get state(): FighterState {
     return this.combat.state;
   }
-
-  public set state(value: FighterState) {
+  set state(value: FighterState) {
     this.combat.state = value;
   }
-
-  public get attackAngle(): number {
+  get attackAngle(): number {
     return this.combat.attackAngle;
   }
-
-  public set attackAngle(value: number) {
+  set attackAngle(value: number) {
     this.combat.attackAngle = value;
   }
-
-  public get currentWeapon(): Weapon {
+  get currentWeapon(): Weapon {
     return this.weaponManager.getCurrentWeapon();
   }
-
-  public get currentAttack(): Weapon | null {
-    if (!this.combat.isAttacking) return null;
-    return this.currentWeapon;
+  get currentAttack(): Weapon | null {
+    return this.combat.isAttacking ? this.currentWeapon : null;
   }
 
-  public update(deltaTime: number): void {
+  update(deltaTime: number): void {
     this.weaponManager.update(deltaTime);
     this.combat.updateAttack(deltaTime);
-
     if (this.combat.canAct) {
       this.controller.updateAttackDirection(
         this.inputHandler.updateAttackDirection(),
       );
-
       this.physics.update(deltaTime);
-
-      const currentWeaponData = this.currentWeapon.getData();
-      const isProjectileAttack = currentWeaponData.projectile;
-
+      const weaponData = this.currentWeapon.getData();
       const canAttack =
         !this.combat.isAttacking ||
-        (isProjectileAttack &&
+        (weaponData.projectile &&
           this.currentWeapon.canAutoFire() &&
           this.combat.cooldownTimer <= 0);
-
-      if (canAttack && this.input.attackLight) {
-        this.startAttack();
-      }
-
+      if (canAttack && this.input.attackLight) this.startAttack();
       this.combat.setBlock(this.input.block);
     }
-
     this.graphics.update();
   }
 
-  public startAttack(): void {
+  startAttack() {
     this.controller.startAttack();
   }
-
-  public takeHit(
+  takeHit(
     damage: number,
     knockback: number,
     fromX: number,
     fromY: number,
     attacker?: Fighter,
-  ): void {
+  ) {
     this.controller.takeHit(damage, knockback, fromX, fromY, attacker);
   }
-
-  public getCurrentAttack() {
+  getCurrentAttack() {
     return this.controller.getCurrentAttack();
   }
-
-  public markHit(): void {
+  markHit() {
     this.controller.markHit();
   }
-
-  public switchWeapon(): void {
+  switchWeapon() {
     this.controller.switchWeapon();
   }
-
-  public reset(x: number, y: number): void {
+  reset(x: number, y: number) {
     this.controller.reset(x, y);
   }
-
-  public setFacingDirection(targetX: number, targetY: number): void {
+  setFacingDirection(targetX: number, targetY: number) {
     this.controller.setFacingDirection(targetX, targetY);
   }
-
-  public getCurrentWeaponState() {
+  getCurrentWeaponState() {
     return this.controller.getCurrentWeaponState();
   }
 
   get velocityX() {
     return this.physics.velocityX;
   }
-
   set velocityX(value: number) {
     this.physics.velocityX = value;
   }
-
   get velocityY() {
     return this.physics.velocityY;
   }
-
   set velocityY(value: number) {
     this.physics.velocityY = value;
   }
 
-  /** 显示对话 */
-  public showSpeech(message: string): void {
+  showSpeech(message: string) {
     this.graphics.showSpeech(message);
   }
-
-  /** 获取对话气泡 */
-  public getSpeechBubble() {
+  getSpeechBubble() {
     return this.graphics.getSpeechBubble();
+  }
+  getNameTag() {
+    return this.graphics.getNameTag();
+  }
+  setDeathCallback(
+    callback: (victim: Fighter, killer: Fighter | null) => void,
+  ) {
+    this.controller.setDeathCallback(callback);
   }
 }

@@ -1,13 +1,11 @@
 import { Container } from "pixi.js";
-
 import { FightingGame } from "../FightingGame";
 import { UIComponents } from "./UIComponents";
 import { UIUpdater } from "./UIUpdater";
 import { UIAnimations } from "./UIAnimations";
 
-/** 游戏UI主类 - 管理所有UI元素和更新 */
 export class GameUI {
-  public readonly container: Container;
+  readonly container: Container;
   private components: UIComponents;
   private updater: UIUpdater;
   private animations: UIAnimations;
@@ -17,7 +15,6 @@ export class GameUI {
     this.components = new UIComponents(game);
     this.updater = new UIUpdater(this.components, game);
     this.animations = new UIAnimations(this.components, game);
-
     this.initUI();
   }
 
@@ -44,31 +41,25 @@ export class GameUI {
     );
   }
 
-  public updateTime(): void {
+  updateTime(): void {
     this.updater.updateTime();
   }
-
-  public updateScore(scores: number[]): void {
+  updateScore(scores: number[]): void {
     this.updater.updateScore(scores);
   }
-
-  public updateRound(roundNumber: number): void {
+  updateRound(roundNumber: number): void {
     this.updater.updateRound(roundNumber);
   }
-
-  public updateWeaponText(): void {
+  updateWeaponText(): void {
     this.updater.updateWeaponText();
   }
-
-  public showRoundAnimation(onComplete: () => void): void {
+  showRoundAnimation(onComplete: () => void): void {
     this.animations.showRoundAnimation(onComplete);
   }
-
-  public showWinner(): void {
+  showWinner(): void {
     this.animations.showWinner();
   }
-
-  public hideWinner(): void {
+  hideWinner(): void {
     this.animations.hideWinner();
   }
 }

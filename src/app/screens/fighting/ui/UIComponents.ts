@@ -134,7 +134,7 @@ export class UIComponents {
     this.timeText.y = -FightingGame.CONFIG.stageHeight / 2 + 50;
     this.timeText.visible = false; // 隐藏时间显示
 
-    // 动态布局玩家UI
+    // 动态布局玩家UI - 全部在左上方
     const nameTexts = [
       this.p1NameText,
       this.p2NameText,
@@ -152,31 +152,24 @@ export class UIComponents {
       this.p6ScoreText,
     ];
 
-    // 左右交替排列玩家信息
-    const startX = 80;
+    // 所有名字都在左上方垂直排列
+    const startX = 60;
     const startY = 50;
-    const offsetX = 120; // 分数相对于名字的X偏移
-    const stepY = 30; // 每个玩家之间的Y间距
+    const scoreOffsetX = 100; // 分数在名字右侧
+    const stepY = 25; // 每个玩家之间的Y间距
 
     for (let i = 0; i < 6; i++) {
-      const isLeft = i % 2 === 0; // 偶数索引在左边
-      const row = Math.floor(i / 2); // 行号
-
       const nameText = nameTexts[i];
       const scoreText = scoreTexts[i];
 
-      // 设置名称位置
-      nameText.anchor.set(0.5);
-      nameText.x = isLeft
-        ? -FightingGame.CONFIG.stageWidth / 2 + startX
-        : FightingGame.CONFIG.stageWidth / 2 - startX;
-      nameText.y = -FightingGame.CONFIG.stageHeight / 2 + startY + row * stepY;
+      // 设置名称位置（左对齐）
+      nameText.anchor.set(0, 0.5);
+      nameText.x = -FightingGame.CONFIG.stageWidth / 2 + startX;
+      nameText.y = -FightingGame.CONFIG.stageHeight / 2 + startY + i * stepY;
 
-      // 设置分数位置(在名称右侧/左侧)
-      scoreText.anchor.set(0.5);
-      scoreText.x = isLeft
-        ? -FightingGame.CONFIG.stageWidth / 2 + startX + offsetX
-        : FightingGame.CONFIG.stageWidth / 2 - startX - offsetX;
+      // 设置分数位置（在名称右侧）
+      scoreText.anchor.set(0, 0.5);
+      scoreText.x = nameText.x + scoreOffsetX;
       scoreText.y = nameText.y;
     }
 

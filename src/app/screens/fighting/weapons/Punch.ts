@@ -1,6 +1,5 @@
 import { Weapon } from "./Weapon";
 
-/** 轻拳武器 */
 export class PunchLight extends Weapon {
   constructor() {
     super({
@@ -12,24 +11,20 @@ export class PunchLight extends Weapon {
     });
   }
 
-  public getName(): string {
+  getName(): string {
     return "轻拳";
   }
-
-  public getMaxAmmo(): number {
+  getMaxAmmo(): number {
     return Infinity;
   }
-
-  public getReloadTime(): number {
+  getReloadTime(): number {
     return 0;
   }
-
-  public hasInfiniteAmmo(): boolean {
+  hasInfiniteAmmo(): boolean {
     return true;
   }
 }
 
-/** 重拳武器 */
 export class PunchHeavy extends Weapon {
   constructor() {
     super({
@@ -41,19 +36,16 @@ export class PunchHeavy extends Weapon {
     });
   }
 
-  public getName(): string {
+  getName(): string {
     return "重拳";
   }
-
-  public getMaxAmmo(): number {
+  getMaxAmmo(): number {
     return Infinity;
   }
-
-  public getReloadTime(): number {
+  getReloadTime(): number {
     return 0;
   }
-
-  public hasInfiniteAmmo(): boolean {
+  hasInfiniteAmmo(): boolean {
     return true;
   }
 }

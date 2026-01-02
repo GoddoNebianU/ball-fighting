@@ -3,7 +3,6 @@ import { AITactics } from "./AITactics";
 import { AIWeaponStrategy } from "./AIWeaponStrategy";
 import type { AIState } from "./types";
 
-/** AI决策系统 */
 export class AIDecision {
   private tactics: AITactics;
   private weaponStrategy: AIWeaponStrategy;
@@ -14,48 +13,41 @@ export class AIDecision {
     this.weaponStrategy = new AIWeaponStrategy();
   }
 
-  public getState(): AIState {
+  getState(): AIState {
     return this.tactics.getState();
   }
-
-  public setState(state: AIState): void {
+  setState(state: AIState): void {
     this.tactics.setState(state);
   }
-
-  public getPreviousState(): AIState {
+  getPreviousState(): AIState {
     return this.previousState;
   }
-
-  public setPreviousState(state: AIState): void {
+  setPreviousState(state: AIState): void {
     this.previousState = state;
   }
-
-  public getTimer(): number {
+  getTimer(): number {
     return this.tactics.getTimer();
   }
-
-  public setTimer(timer: number): void {
+  setTimer(timer: number): void {
     this.tactics.setTimer(timer);
   }
-
-  public getReactionDelay(): number {
+  getReactionDelay(): number {
     return this.tactics.getReactionDelay();
   }
-
-  public setReactionDelay(delay: number): void {
+  setReactionDelay(delay: number): void {
     this.tactics.setReactionDelay(delay);
   }
 
-  public makeDecision(distance: number, ai: Fighter): void {
+  makeDecision(distance: number, ai: Fighter): void {
     this.previousState = this.tactics.getState();
     this.tactics.makeTacticalDecision(distance, ai);
   }
 
-  public decideWeapon(distance: number, ai: Fighter): number {
+  decideWeapon(distance: number, ai: Fighter): number {
     return this.weaponStrategy.decideWeapon(distance, ai);
   }
 
-  public reset(): void {
+  reset(): void {
     this.tactics.setState("idle");
     this.tactics.setTimer(0);
     this.tactics.setReactionDelay(500);

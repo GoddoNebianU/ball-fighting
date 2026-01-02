@@ -22,10 +22,25 @@ export interface GameState {
   scores: number[];
 }
 
+export interface ChatMessage {
+  playerName: string;
+  message: string;
+  timestamp: number;
+}
+
+export interface KillRecord {
+  killerName: string;
+  victimName: string;
+  timestamp: number;
+  roundNumber: number;
+}
+
 export interface ChatRequest {
   gameState: GameState;
   playerName?: string; // 可选：指定说话的角色名称
   context?: string; // 可选：额外上下文
+  recentMessages?: ChatMessage[]; // 最近的对话历史（最多3-5条）
+  killHistory?: KillRecord[]; // 击杀历史记录
 }
 
 export interface ChatResponse {

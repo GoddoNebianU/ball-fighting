@@ -16,11 +16,12 @@ export class GameClient {
   ): Promise<string | null> {
     try {
       const gameState = this.buildGameState(game);
+      const killHistory = game.getKillHistory();
 
       const response = await fetch(`${this.apiUrl}/api/chat/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameState, playerName }),
+        body: JSON.stringify({ gameState, playerName, killHistory }),
       });
 
       if (!response.ok) {
@@ -64,5 +65,19 @@ export class GameClient {
       }),
       scores: game.players.getAllScores(),
     };
+  }
+
+  /** 清空指定玩家的对话队列（当玩家死亡时调用） */
+  async clearPlayerQueue(playerName: string): Promise<void> {
+    try {
+      await fetch(`${this.apiUrl}/api/chat/clear-player`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerName }),
+      });
+    } catch (error) {
+      console.error(`清空玩家 ${playerName} 队列失败:`, error);
+      // 静默失败，不影响游戏流程
+    }
   }
 }
