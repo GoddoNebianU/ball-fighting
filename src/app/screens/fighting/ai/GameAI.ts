@@ -42,6 +42,9 @@ export class GameAI {
   }
 
   private initializeAIControllers(): void {
+    // 处理 players 尚未初始化的情况
+    if (!this.game.players) return;
+
     const aiPlayers = this.game.players.getAIPlayers();
 
     aiPlayers.forEach((ai) => {
@@ -128,14 +131,6 @@ export class GameAI {
     const dx = target.x - ai.x;
     const dy = target.y - ai.y;
 
-    // 调试日志
-    const aiIndex = this.game.players.findPlayerIndex(ai);
-    if (Math.random() < 0.01) {
-      console.log(
-        `[AI${aiIndex}] dist: ${targetDistance.toFixed(0)} state: ${this.stateExecutor.getState()} cooldown: ${controller.decisionCooldown.toFixed(0)}`,
-      );
-    }
-
     // 重置AI输入
     this.stateExecutor.clearAIInput(ai);
 
@@ -157,24 +152,35 @@ export class GameAI {
     if (controller.speechTimer <= 0 && controller.speechCooldown <= 0) {
       // 75%概率显示对话
       if (Math.random() < 0.75) {
-        // 获取玩家名称
+        // 获取玩家名称和风格
         const playerIndex = this.game.players.findPlayerIndex(ai);
         const playerName =
           playerIndex !== -1
             ? this.game.players.getPlayerName(playerIndex)
             : "AI";
+        const playerStyle =
+          playerIndex !== -1
+            ? this.game.players.getPlayerStyle(playerIndex)
+            : null;
+        const playerMessageLength =
+          playerIndex !== -1
+            ? this.game.players.getPlayerMessageLength(playerIndex)
+            : 50;
 
         // 异步调用后端API生成对话
         this.gameClient
-          .generateAIChat(this.game, playerName)
+          .generateAIChat(
+            this.game,
+            playerName,
+            playerStyle,
+            playerMessageLength,
+          )
           .then((message) => {
             if (message) {
               ai.showSpeech(message);
             }
           })
-          .catch((error) => {
-            console.error("获取AI对话失败:", error);
-          });
+          .catch(() => {});
       }
 
       // 重置计时器 (随机8-12秒)
@@ -185,34 +191,18 @@ export class GameAI {
     if (controller.weaponSwitchCooldown < 0)
       controller.weaponSwitchCooldown = 0;
 
-    console.log(
-      `[AI${aiIndex}] After timer update - cooldown: ${controller.decisionCooldown.toFixed(0)}, reactionDelay: ${controller.reactionDelay.toFixed(0)}, isIdling: ${controller.isIdling}`,
-    );
-
     // 检查是否在摸鱼
     if (controller.isIdling) {
-      console.log(
-        `[AI${aiIndex}] CHECK: isIdling=true, idleTimer: ${controller.idleTimer.toFixed(0)}`,
-      );
       if (controller.idleTimer <= 0) {
         controller.isIdling = false;
         controller.reactionDelay = 200 + Math.random() * 300;
-        console.log(
-          `[AI${aiIndex}] EXIT: Idle finished, set reactionDelay: ${controller.reactionDelay.toFixed(0)}`,
-        );
       } else {
-        console.log(
-          `[AI${aiIndex}] RETURN: Still idling for ${controller.idleTimer.toFixed(0)}ms`,
-        );
         return;
       }
     }
 
     // 反应延时期间 - 继续执行上一个状态,但不做新决策
     if (controller.reactionDelay > 0) {
-      console.log(
-        `[AI${aiIndex}] In reactionDelay=${controller.reactionDelay.toFixed(0)}, prevState=${controller.decision.getPreviousState()}`,
-      );
       // 继续执行上一个状态,但不做新决策
       this.stateExecutor.executeState(ai, targetDistance, dx, dy);
 
@@ -222,15 +212,12 @@ export class GameAI {
       return;
     }
 
-    console.log(`[AI${aiIndex}] Passed all early returns, entering main logic`);
-
     // 【新增】优先检查并躲避子弹
     const isDodging = this.bulletDodge.checkAndDodgeBullets(
       ai,
       this.game.bullets,
     );
     if (isDodging) {
-      console.log(`[AI${aiIndex}] Dodging bullet, skipping normal logic`);
       // 躲避子弹时不执行正常状态,直接返回,保留dodge设置的输入
       return;
     }
@@ -247,35 +234,20 @@ export class GameAI {
     // 如果正在前往血包
     if (this.healthPackBehavior.hasTarget()) {
       this.healthPackBehavior.moveToHealthPack(ai);
-      console.log(`[AI${aiIndex}] Going to health pack, skipping decision`);
       return;
     }
 
     // 决策前调试
-    console.log(
-      `[AI${aiIndex}] Before decision check - cooldown: ${controller.decisionCooldown.toFixed(0)}`,
-    );
 
     // 决策
     if (controller.decisionCooldown <= 0) {
-      console.log(
-        `[AI${aiIndex}] Making decision - cooldown was ${controller.decisionCooldown.toFixed(0)}`,
-      );
       controller.decisionCooldown = 500;
-      const oldState = controller.decision.getState();
       controller.decision.makeDecision(targetDistance, ai);
       const newState = controller.decision.getState();
       this.stateExecutor.setState(newState);
       // 使用decision返回的timer值设置stateExecutor的timer
       this.stateExecutor.setTimer(controller.decision.getTimer());
       controller.reactionDelay = controller.decision.getReactionDelay();
-
-      // 调试决策
-      if (oldState !== newState && Math.random() < 0.05) {
-        console.log(
-          `[AI${aiIndex}] Decision: ${oldState} -> ${newState}, dist: ${targetDistance.toFixed(0)}`,
-        );
-      }
     }
 
     // 换武器决策
@@ -322,5 +294,13 @@ export class GameAI {
 
     this.aimController.reset();
     this.healthPackBehavior.reset();
+  }
+
+  /** 重新初始化AI控制器（在加载敌人后调用） */
+  reinitializeAIControllers(): void {
+    // 清空旧的控制器
+    this.aiControllers.clear();
+    // 重新初始化
+    this.initializeAIControllers();
   }
 }

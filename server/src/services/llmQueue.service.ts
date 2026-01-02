@@ -7,14 +7,16 @@ interface LLMRequestTask {
   playerName?: string;
   recentMessages?: ChatMessage[];
   killHistory?: KillRecord[];
+  messageLength?: number;
   resolve: (value: string) => void;
   reject: (error: Error) => void;
 }
 
-/** LLM 请求队列服务 - 串行处理请求，避免并发限制 */
+/** LLM 请求队列服务 - 并发处理请求 */
 export class LLMQueueService {
   private queue: LLMRequestTask[] = [];
-  private isProcessing: boolean = false;
+  private activeCount: number = 0; // 当前活跃的任务数
+  private maxConcurrency: number = 4; // 最大并发数
   private zhipuService: ZhipuService | null = null;
   private maxQueueSize: number = 10; // 队列最大长度
   private maxWaitTime: number = 30000; // 最大等待时间 30秒
@@ -35,6 +37,7 @@ export class LLMQueueService {
     playerName?: string,
     recentMessages?: ChatMessage[],
     killHistory?: KillRecord[],
+    messageLength?: number,
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       // 检查队列是否已满
@@ -51,6 +54,7 @@ export class LLMQueueService {
         playerName,
         recentMessages,
         killHistory,
+        messageLength,
         resolve,
         reject,
       };
@@ -73,28 +77,21 @@ export class LLMQueueService {
       // 保存 timeoutId 以便后续清理（如果任务被处理）
       (task as any).timeoutId = timeoutId;
 
-      // 如果队列处理器空闲，启动处理
-      if (!this.isProcessing) {
-        this.processQueue();
-      }
+      // 尝试启动处理任务
+      this.processQueue();
     });
   }
 
   /** 处理队列中的任务 */
   private async processQueue(): Promise<void> {
-    if (this.isProcessing || this.queue.length === 0) {
-      return;
-    }
-
-    this.isProcessing = true;
-    console.log("[LLM队列] 开始处理队列...");
-
-    while (this.queue.length > 0) {
+    // 当还有任务且未达到并发限制时，启动新任务
+    while (this.queue.length > 0 && this.activeCount < this.maxConcurrency) {
       const task = this.queue.shift();
       if (!task) break;
 
+      this.activeCount++;
       console.log(
-        `[LLM队列] 处理任务 - 玩家: ${task.playerName || "未知"}, 剩余任务: ${this.queue.length}`,
+        `[LLM队列] 处理任务 - 玩家: ${task.playerName || "未知"}, 活跃任务: ${this.activeCount}/${this.maxConcurrency}, 剩余任务: ${this.queue.length}`,
       );
 
       // 清理超时定时器
@@ -103,33 +100,36 @@ export class LLMQueueService {
         clearTimeout(timeoutId);
       }
 
-      // 确保服务已初始化
-      this.ensureService();
-
-      try {
-        const startTime = Date.now();
-        const result = await this.zhipuService!.generateChatMessage(
-          task.gameState,
-          task.playerName,
-          task.recentMessages,
-          task.killHistory,
-        );
-        const duration = Date.now() - startTime;
-        console.log(`[LLM队列] 任务完成 - 耗时: ${duration}ms`);
-        task.resolve(result);
-      } catch (error) {
-        console.error("[LLM队列] 任务失败:", error);
-        task.reject(error as Error);
-      }
-
-      // 添加一个小延迟，避免请求过于密集
-      if (this.queue.length > 0) {
-        await this.sleep(500); // 等待500ms再处理下一个
-      }
+      // 异步处理任务
+      this.processTask(task);
     }
+  }
 
-    console.log("[LLM队列] 队列处理完成");
-    this.isProcessing = false;
+  /** 处理单个任务 */
+  private async processTask(task: LLMRequestTask): Promise<void> {
+    // 确保服务已初始化
+    this.ensureService();
+
+    try {
+      const startTime = Date.now();
+      const result = await this.zhipuService!.generateChatMessage(
+        task.gameState,
+        task.playerName,
+        task.recentMessages,
+        task.killHistory,
+        task.messageLength,
+      );
+      const duration = Date.now() - startTime;
+      console.log(`[LLM队列] 任务完成 - 耗时: ${duration}ms`);
+      task.resolve(result);
+    } catch (error) {
+      console.error("[LLM队列] 任务失败:", error);
+      task.reject(error as Error);
+    } finally {
+      this.activeCount--;
+      // 尝试处理下一个任务
+      this.processQueue();
+    }
   }
 
   /** 获取当前队列长度 */
@@ -137,14 +137,9 @@ export class LLMQueueService {
     return this.queue.length;
   }
 
-  /** 检查是否正在处理 */
-  public get processing(): boolean {
-    return this.isProcessing;
-  }
-
-  /** 延迟函数 */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  /** 获取当前活跃任务数 */
+  public get activeTasks(): number {
+    return this.activeCount;
   }
 
   /** 清空队列 */

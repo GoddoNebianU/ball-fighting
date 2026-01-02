@@ -78,16 +78,10 @@ export class AIDodgeCalculator {
     // 计算沿子弹方向的距离
     const alongDist = dx * bulletDirX + dy * bulletDirY;
 
-    // 调试:输出关键数据
-    console.log(
-      `[AIDodgeCalculator] Dodging - perpDist: ${perpDist.toFixed(1)}, alongDist: ${alongDist.toFixed(1)}`,
-    );
-
     // 判断子弹是否会击中AI
     // 如果沿子弹方向的距离是负的,说明子弹正在远离AI
     if (alongDist < 0) {
       // 子弹已经飞过AI或正在远离,不需要躲避
-      console.log(`[AIDodgeCalculator] Bullet moving away, only blocking`);
       return {
         dodgeX: 0,
         dodgeY: 0,
@@ -147,10 +141,6 @@ export class AIDodgeCalculator {
       targetDodgeX = bulletDirX; // 沿子弹方向
       targetDodgeY = bulletDirY;
     }
-
-    console.log(
-      `[AIDodgeCalculator] Dodge direction: (${targetDodgeX.toFixed(2)}, ${targetDodgeY.toFixed(2)})`,
-    );
 
     return {
       dodgeX: targetDodgeX,

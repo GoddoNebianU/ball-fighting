@@ -62,4 +62,8 @@ export class GameUI {
   hideWinner(): void {
     this.animations.hideWinner();
   }
+
+  updatePlayerNames(game: FightingGame): void {
+    this.components.updatePlayerNames(game);
+  }
 }

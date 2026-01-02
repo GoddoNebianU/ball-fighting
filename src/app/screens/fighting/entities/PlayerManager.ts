@@ -1,4 +1,5 @@
 import { Fighter } from "../fighter/Fighter";
+import { StyleConfig } from "../../../../types/game.types";
 
 export interface PlayerConfig {
   name: string;
@@ -6,6 +7,8 @@ export interface PlayerConfig {
   startX: number;
   startY: number;
   isAI: boolean;
+  style?: StyleConfig; // 角色的风格配置
+  messageLength?: number; // 对话长度（字符数），默认 50
 }
 
 export class PlayerManager {
@@ -15,9 +18,13 @@ export class PlayerManager {
 
   constructor(configs: PlayerConfig[]) {
     this.configs = configs;
-    this.players = configs.map(
-      (config) => new Fighter(config.name, config.color),
-    );
+    this.players = configs.map((config) => {
+      const color =
+        typeof config.color === "string"
+          ? parseInt(config.color, 10)
+          : config.color;
+      return new Fighter(config.name, color >>> 0);
+    });
     this.scores = new Array(configs.length).fill(0);
     this.resetAll();
   }
@@ -87,10 +94,26 @@ export class PlayerManager {
   }
   getPlayerColor(index: number): number {
     return index >= 0 && index < this.configs.length
-      ? this.configs[index].color
+      ? (typeof this.configs[index].color === "string"
+          ? parseInt(this.configs[index].color as string, 10)
+          : this.configs[index].color) >>> 0
       : 0xffffff;
   }
   getAllPlayerColors(): number[] {
-    return this.configs.map((c) => c.color);
+    return this.configs.map((c) => {
+      const color =
+        typeof c.color === "string" ? parseInt(c.color, 10) : c.color;
+      return color >>> 0;
+    });
+  }
+  getPlayerStyle(index: number): StyleConfig | null {
+    return index >= 0 && index < this.configs.length
+      ? this.configs[index].style || null
+      : null;
+  }
+  getPlayerMessageLength(index: number): number {
+    return index >= 0 && index < this.configs.length
+      ? this.configs[index].messageLength || 50
+      : 50;
   }
 }

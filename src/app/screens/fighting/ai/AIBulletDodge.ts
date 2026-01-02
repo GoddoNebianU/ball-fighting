@@ -27,13 +27,6 @@ export class AIBulletDodge {
   ): boolean {
     const bullets = bulletManager["bullets"] as Bullet[];
 
-    // 调试:每60帧输出一次状态
-    if (Math.random() < 0.016) {
-      console.log(
-        `[BulletDodge] State - bullets: ${bullets.length}, locked: ${this.isDodgeDirectionLocked}, timer: ${this.currentDodgeTimer.toFixed(0)}ms`,
-      );
-    }
-
     if (bullets.length === 0) {
       this.currentDodgeTimer = 0;
       this.clearDodgeInputs(ai);
@@ -43,14 +36,11 @@ export class AIBulletDodge {
 
     let mostDangerousBullet: Bullet | null = null;
     let minTimeToImpact = Infinity;
-    let bulletCheckCount = 0; // 调试:记录检查了多少颗子弹
 
     // 找到最危险的子弹(即将击中AI的子弹)
     for (const bullet of bullets) {
       if (!bullet.active) continue;
       if (bullet.owner === ai) continue;
-
-      bulletCheckCount++;
 
       // 计算子弹到AI的距离
       const dx = ai.x - bullet.x;
@@ -68,26 +58,15 @@ export class AIBulletDodge {
       }
     }
 
-    // 调试:输出子弹检测情况
-    if (bulletCheckCount > 0) {
-      console.log(
-        `[BulletDodge] Checked ${bulletCheckCount} bullets, mostDangerous: ${mostDangerousBullet ? "YES" : "NO"}, minTimeToImpact: ${minTimeToImpact.toFixed(0)}ms`,
-      );
-    }
-
     // 如果有危险子弹,执行躲避
     // 检测范围: 800ms内会击中的子弹 (缩小检测窗口,只在真正危险时躲避)
     if (mostDangerousBullet && minTimeToImpact < 800) {
       // 如果方向没有锁定,计算并锁定新方向
       if (!this.isDodgeDirectionLocked) {
-        console.log(
-          `[BulletDodge] Direction NOT locked, calculating new dodge direction`,
-        );
         this.dodgeBullet(ai, mostDangerousBullet);
         this.isDodgeDirectionLocked = true;
         this.currentDodgeTimer = this.DODGE_DURATION; // 只在计算新方向时重置timer
       } else {
-        console.log(`[BulletDodge] Direction locked, applying smoothed dodge`);
         // 方向已锁定,继续应用平滑后的躲避方向
         this.applySmoothedDodge(ai);
       }
@@ -97,9 +76,6 @@ export class AIBulletDodge {
     // 如果正在躲避中,继续保持躲避方向
     if (this.currentDodgeTimer > 0) {
       this.currentDodgeTimer -= 16; // 假设60fps,每帧约16ms
-      console.log(
-        `[BulletDodge] Still dodging, timer: ${this.currentDodgeTimer.toFixed(0)}ms`,
-      );
       // 应用平滑后的躲避输入
       this.applySmoothedDodge(ai);
       return true;
@@ -107,7 +83,6 @@ export class AIBulletDodge {
 
     // 没有危险子弹,解锁方向并重置平滑
     if (this.isDodgeDirectionLocked) {
-      console.log(`[BulletDodge] No dangerous bullets, unlocking direction`);
       this.isDodgeDirectionLocked = false;
       this.resetSmoothing();
     }
@@ -167,16 +142,8 @@ export class AIBulletDodge {
       this.smoothedDodgeY * this.SMOOTHING_FACTOR +
       dodgeY * (1 - this.SMOOTHING_FACTOR);
 
-    console.log(
-      `[BulletDodge] Smoothed dodge: (${this.smoothedDodgeX.toFixed(2)}, ${this.smoothedDodgeY.toFixed(2)})`,
-    );
-
     // 立即应用平滑后的输入
     this.applySmoothedDodge(ai);
-
-    console.log(
-      `[BulletDodge] Applied inputs - left: ${ai.input.left}, right: ${ai.input.right}, up: ${ai.input.up}, down: ${ai.input.down}, block: ${ai.input.block}`,
-    );
   }
 
   public reset(): void {

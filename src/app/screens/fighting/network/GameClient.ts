@@ -1,7 +1,32 @@
 import { FightingGame } from "../FightingGame";
-import { GameState } from "../../../../types/game.types";
+import { GameState, StyleConfig } from "../../../../types/game.types";
 
-/** 游戏客户端 - 调用后端API生成对话 */
+export interface CharacterConfig {
+  name: string;
+  series: string;
+  personality: string;
+  color: number;
+  startX: number;
+  startY: number;
+  style?: StyleConfig; // 角色的风格配置
+  messageLength?: number; // 对话长度（字符数），默认 50
+}
+
+export interface EnemiesResponse {
+  style: string;
+  styleName: string;
+  characters: CharacterConfig[];
+  count: number;
+}
+
+export interface AllEnemiesResponse {
+  styles: {
+    style: string;
+    name: string;
+    characterCount: number;
+  }[];
+}
+
 export class GameClient {
   private apiUrl: string;
 
@@ -9,10 +34,58 @@ export class GameClient {
     this.apiUrl = apiUrl;
   }
 
-  /** 生成AI对话 */
+  async getStyleEnemies(styleName: string): Promise<EnemiesResponse | null> {
+    try {
+      const url = `${this.apiUrl}/api/chat/enemies/${styleName}`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async getAllEnemies(): Promise<AllEnemiesResponse | null> {
+    try {
+      const response = await fetch(`${this.apiUrl}/api/chat/enemies`);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async switchStyle(styleName: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.apiUrl}/api/chat/styles/switch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ styleName }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async getCurrentStyle(): Promise<{
+    name: string;
+    config: StyleConfig;
+  } | null> {
+    try {
+      const response = await fetch(`${this.apiUrl}/api/chat/styles/current`);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
   async generateAIChat(
     game: FightingGame,
     playerName: string,
+    playerStyle?: StyleConfig | null,
+    messageLength?: number,
   ): Promise<string | null> {
     try {
       const gameState = this.buildGameState(game);
@@ -21,25 +94,25 @@ export class GameClient {
       const response = await fetch(`${this.apiUrl}/api/chat/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameState, playerName, killHistory }),
+        body: JSON.stringify({
+          gameState,
+          playerName,
+          killHistory,
+          style: playerStyle, // 直接传递 style 对象
+          messageLength: messageLength || 50,
+        }),
       });
 
-      if (!response.ok) {
-        console.error(`API调用失败: ${response.status}`);
-        return null;
-      }
+      if (!response.ok) return null;
 
       const data = await response.json();
-      // 移除可能的引号
       const message = data.message.replace(/^"|"$/g, "");
       return message;
-    } catch (error) {
-      console.error("生成对话失败:", error);
+    } catch {
       return null;
     }
   }
 
-  /** 构建游戏状态对象 */
   private buildGameState(game: FightingGame): GameState {
     const players = game.players.getAllPlayers();
 
@@ -53,7 +126,7 @@ export class GameClient {
         return {
           name: game.players.getPlayerName(index),
           health: player.health,
-          maxHealth: 200, // Fighter.CONFIG.maxHealth
+          maxHealth: 200,
           x: player.x,
           y: player.y,
           isDead: player.isDead,
@@ -67,7 +140,6 @@ export class GameClient {
     };
   }
 
-  /** 清空指定玩家的对话队列（当玩家死亡时调用） */
   async clearPlayerQueue(playerName: string): Promise<void> {
     try {
       await fetch(`${this.apiUrl}/api/chat/clear-player`, {
@@ -75,9 +147,8 @@ export class GameClient {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerName }),
       });
-    } catch (error) {
-      console.error(`清空玩家 ${playerName} 队列失败:`, error);
-      // 静默失败，不影响游戏流程
+    } catch {
+      // 静默失败
     }
   }
 }

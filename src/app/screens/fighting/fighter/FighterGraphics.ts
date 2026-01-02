@@ -69,15 +69,35 @@ export class FighterGraphics {
     this.bodyGraphics
       .circle(Fighter.CONFIG.radius / 2 - 3, 3, 3)
       .fill({ color: 0xffffff });
+
+    // 计算暗色版本（更安全的方法）
+    const darkerColor = this.getDarkerColor(color);
+
     this.bodyGraphics
       .circle(-Fighter.CONFIG.radius + 5, 0, 8)
-      .fill({ color: color - 0x222222 });
+      .fill({ color: darkerColor });
     this.bodyGraphics
       .circle(Fighter.CONFIG.radius - 5, 0, 8)
-      .fill({ color: color - 0x222222 });
+      .fill({ color: darkerColor });
     this.healthBarGraphics
       .roundRect(-30, -50, 60, 8, 4)
       .fill({ color: 0x000000, alpha: 0.5 });
+  }
+
+  /**
+   * 生成颜色的暗色版本（安全的 RGB 分量操作）
+   */
+  private getDarkerColor(color: number): number {
+    const r = (color >> 16) & 0xff;
+    const g = (color >> 8) & 0xff;
+    const b = color & 0xff;
+
+    // 每个分量减少约 13%（32/256）
+    const darkerR = Math.max(0, r - 32);
+    const darkerG = Math.max(0, g - 32);
+    const darkerB = Math.max(0, b - 32);
+
+    return (darkerR << 16) | (darkerG << 8) | darkerB;
   }
 
   update(): void {

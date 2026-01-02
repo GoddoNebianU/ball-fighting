@@ -11,7 +11,7 @@ import { GameUI } from "./ui/GameUI";
 import { GameAI } from "./ai/GameAI";
 import { GameLoop } from "./GameLoop";
 import { GameMode } from "./types";
-import { GameClient } from "./network/GameClient";
+import { GameClient, CharacterConfig } from "./network/GameClient";
 
 export class FightingGame extends Container {
   static readonly CONFIG = {
@@ -31,7 +31,7 @@ export class FightingGame extends Container {
   private effectManager: EffectManager;
   healthPacks: HealthPackManager;
   private ai: GameAI;
-  players: PlayerManager;
+  players: PlayerManager = null!;
   private gameLoop: GameLoop;
   speechBubblesContainer: Container;
   nameTagsContainer: Container;
@@ -39,42 +39,15 @@ export class FightingGame extends Container {
   private killHistory: KillHistory;
   private killToasts: KillToast[] = [];
   private gameClient: GameClient;
+  private currentStyle: string = "default";
 
   constructor(mode: GameMode = GameMode.VS_CPU) {
     super();
     this.mode = mode;
-
-    const playerConfigs: PlayerConfig[] = [
-      { name: "龙傲天", color: 0x4488ff, startX: 0, startY: 300, isAI: false },
-      {
-        name: "赵日天",
-        color: 0xff6644,
-        startX: -250,
-        startY: -150,
-        isAI: true,
-      },
-      {
-        name: "叶良辰",
-        color: 0x44ff44,
-        startX: 250,
-        startY: -150,
-        isAI: true,
-      },
-      { name: "福尔康", color: 0xff44ff, startX: 0, startY: -250, isAI: true },
-      {
-        name: "欧阳铁柱",
-        color: 0xffff44,
-        startX: -300,
-        startY: 100,
-        isAI: true,
-      },
-    ];
-
-    this.players = new PlayerManager(playerConfigs);
+    this.gameClient = new GameClient();
     this.stage = new FightingStage();
     this.ui = new GameUI(this);
     this.input = new GameInput(this);
-    this.gameClient = new GameClient();
     this.bullets = new BulletManager(this);
     this.effectManager = new EffectManager(this);
     this.healthPacks = new HealthPackManager(this);
@@ -91,27 +64,106 @@ export class FightingGame extends Container {
       this.input,
       this.ui,
       this.ai,
-      this.players.getAllPlayers(),
+      [],
       () => this.onGameOver(),
     );
 
     this.ui.updateRound(this.currentRound);
-    this.addChildren();
-    this.setupPlayerCallbacks();
+    this.addChildrenBase();
   }
 
-  private addChildren(): void {
+  /** 添加基础子对象（不包括玩家） */
+  private addChildrenBase(): void {
     this.addChild(this.stage.container);
-    this.players.getAllPlayers().forEach((p) => this.addChild(p));
     this.addChild(this.speechBubblesContainer);
     this.addChild(this.nameTagsContainer);
     this.addChild(this.killToastsContainer);
     this.addChild(this.ui.container);
-    this.players
-      .getAllPlayers()
-      .forEach((p) =>
-        this.nameTagsContainer.addChild(p.getNameTag().getText()),
+  }
+
+  /** 添加玩家到场景 */
+  private addPlayers(): void {
+    if (!this.players) return;
+    this.players.getAllPlayers().forEach((p) => {
+      if (p.parent !== this) {
+        this.addChild(p);
+      }
+      const nameTag = p.getNameTag().getText();
+      if (nameTag.parent !== this.nameTagsContainer) {
+        this.nameTagsContainer.addChild(nameTag);
+      }
+    });
+  }
+
+  /** 从后端加载敌人配置并初始化游戏 */
+  async loadEnemies(styleName?: string): Promise<boolean> {
+    const style = styleName || this.currentStyle;
+    try {
+      const enemiesResponse = await this.gameClient.getStyleEnemies(style);
+      if (!enemiesResponse || enemiesResponse.characters.length === 0) {
+        console.warn(
+          `[FightingGame] 未找到风格 "${style}" 的敌人配置，使用默认配置`,
+        );
+        this.loadDefaultEnemies();
+        return false;
+      }
+
+      const playerConfigs: PlayerConfig[] = enemiesResponse.characters.map(
+        (char: CharacterConfig) => ({
+          name: char.name,
+          color:
+            (typeof char.color === "string"
+              ? parseInt(char.color, 10)
+              : char.color) >>> 0,
+          startX: char.startX,
+          startY: char.startY,
+          isAI: true, // 所有角色都是 AI
+          style: char.style, // 直接使用 style 对象（可能是 undefined）
+          messageLength: char.messageLength || 50,
+        }),
       );
+
+      this.players = new PlayerManager(playerConfigs);
+      this.gameLoop.updatePlayersList(this.players.getAllPlayers());
+      this.setupPlayerCallbacks();
+      this.addPlayers();
+      this.ui.updatePlayerNames(this);
+      this.ai.reinitializeAIControllers();
+
+      this.currentStyle = style;
+      console.log(
+        `[FightingGame] 已加载风格 "${enemiesResponse.styleName}" 的 ${playerConfigs.length} 个角色`,
+      );
+      return true;
+    } catch (error) {
+      console.error(`[FightingGame] 加载敌人配置失败:`, error);
+      this.loadDefaultEnemies();
+      return false;
+    }
+  }
+
+  /** 加载默认敌人配置 */
+  private loadDefaultEnemies(): void {
+    const playerConfigs: PlayerConfig[] = [
+      { name: "小樱", color: 0x4488ff, startX: 0, startY: 300, isAI: false },
+      { name: "美月", color: 0xff6644, startX: -250, startY: -150, isAI: true },
+      { name: "雪奈", color: 0x44ff44, startX: 250, startY: -150, isAI: true },
+      { name: "爱丽丝", color: 0xff44ff, startX: 0, startY: -250, isAI: true },
+      {
+        name: "莉莉丝",
+        color: 0xffff44,
+        startX: -300,
+        startY: 100,
+        isAI: true,
+      },
+    ];
+
+    this.players = new PlayerManager(playerConfigs);
+    this.gameLoop.updatePlayersList(this.players.getAllPlayers());
+    this.setupPlayerCallbacks();
+    this.addPlayers();
+    this.ui.updatePlayerNames(this);
+    this.ai.reinitializeAIControllers();
   }
 
   private setupPlayerCallbacks(): void {
@@ -152,11 +204,14 @@ export class FightingGame extends Container {
     const deltaTime = 16;
     this.killToasts.forEach((t) => t.update(deltaTime));
     this.killToasts = this.killToasts.filter((t) => t.isVisible());
-    this.players.getAllPlayers().forEach((p) => {
-      const nameTag = p.getNameTag().getText();
-      nameTag.x = p.x;
-      nameTag.y = p.y + 45;
-    });
+    // 处理 players 尚未初始化的情况
+    if (this.players) {
+      this.players.getAllPlayers().forEach((p) => {
+        const nameTag = p.getNameTag().getText();
+        nameTag.x = p.x;
+        nameTag.y = p.y + 45;
+      });
+    }
   }
 
   async start(): Promise<void> {

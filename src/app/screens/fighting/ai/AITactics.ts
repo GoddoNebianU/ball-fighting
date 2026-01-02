@@ -47,11 +47,6 @@ export class AITactics {
   public makeTacticalDecision(distance: number, ai: Fighter): void {
     const rand = Math.random();
 
-    // 调试: 记录决策调用
-    console.log(
-      `[AITactics] makeTacticalDecision - distance: ${distance.toFixed(0)}, weapon: ${ai.currentWeapon.getName()}`,
-    );
-
     // 根据血量决定策略
     const aiHealthPercent = ai.health / Fighter.CONFIG.maxHealth;
     // 注意: 这里暂时用自身血量作为对比,后续可以传入对手血量

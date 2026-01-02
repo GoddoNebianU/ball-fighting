@@ -25,6 +25,7 @@ export class ZhipuService {
    * @param playerName 玩家名称（可选）
    * @param recentMessages 最近对话历史（可选）
    * @param killHistory 击杀历史（可选）
+   * @param messageLength 对话长度（可选）
    * @returns 生成的对话内容
    */
   async generateChatMessage(
@@ -32,6 +33,7 @@ export class ZhipuService {
     playerName?: string,
     recentMessages?: ChatMessage[],
     killHistory?: KillRecord[],
+    messageLength?: number,
   ): Promise<string> {
     const systemPrompt = buildSystemPrompt();
     const userPrompt = new UserPromptBuilder(
@@ -39,6 +41,7 @@ export class ZhipuService {
       playerName,
       recentMessages,
       killHistory,
+      messageLength,
     ).build();
 
     const messages: ZhipuMessage[] = [

@@ -18,10 +18,6 @@ export class AIStateExecutor {
 
   public setTimer(timer: number): void {
     this.timer = timer;
-    // 调试: 记录timer设置
-    if (timer > 0 && Math.random() < 0.01) {
-      console.log(`AIStateExecutor: setTimer to ${timer.toFixed(0)}ms`);
-    }
   }
 
   public getTimer(): number {
@@ -36,11 +32,6 @@ export class AIStateExecutor {
   ): void {
     // 检查状态是否改变
     const stateChanged = this.previousState !== this.state;
-
-    // 调试: 记录状态变化
-    if (stateChanged && Math.random() < 0.1) {
-      console.log(`AI state: ${this.previousState} -> ${this.state}`);
-    }
 
     switch (this.state) {
       case "approach":
@@ -124,7 +115,6 @@ export class AIStateExecutor {
         break;
 
       default:
-        console.log(`Unknown AI state: ${this.state}, switching to approach`);
         this.state = "approach";
         break;
     }

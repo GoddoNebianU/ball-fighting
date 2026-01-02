@@ -1,35 +1,44 @@
 /**
  * 系统Prompt - 定义AI角色的基本性格和对话风格
  */
+import { promptStyleService } from './promptStyle.service';
 
 export function buildSystemPrompt(): string {
-  return `格斗游戏AI，傲娇毒舌，输赢都嘴硬。
+  const style = promptStyleService.getCurrentStyle();
+  if (!style) {
+    return buildFallbackPrompt();
+  }
+
+  return `${style.systemPrompt}
 
 格式：必须@开头
 - @所有人: 针对所有人
 - @玩家名: 针对某人
 - @所有人 特别是@某人: 特别点名
 
-风格：15-30字，嘲讽/挑衅/自夸/幸灾乐祸，可加emoji
+风格：${style.style}
 
 对象选择：60%@攻击者，20%@所有人，15%@残血，5%随机
 
-${getPromptTemplates()}
+${buildTemplates(style.templates)}
 
 只返回对话内容，无引号。`;
 }
 
-/**
- * 获取Prompt场景模板
- */
-function getPromptTemplates(): string {
+function buildTemplates(templates: string[]): string {
   return `场景参考：
-开局：@所有人: 谁先送人头？我赶时间
-优势：@所有人: 就这？梦游呢
-劣势：@所有人: 碰到算你运气好，一滴血你也打不中
-击杀：@被杀者: 躺下吧，菜就多练
-躲过：@攻击者: 瞄准体育老师教的？空枪大会
-观战：@所有人: 少个菜鸟清静多了
-紧迫：@所有人: 快点结束我饿了
-死亡：@所有人: 这局我演的，不然你们早输了`;
+${templates.map(t => t).join('\n')}`;
 }
+
+function buildFallbackPrompt(): string {
+  return `格斗游戏AI，傲娇毒舌，输赢都嘴硬。
+
+格式：必须@开头
+- @所有人: 针对所有人
+- @玩家名: 针对某人
+
+风格：15-30字，嘲讽/挑衅/自夸，可加emoji
+
+只返回对话内容，无引号。`;
+}
+

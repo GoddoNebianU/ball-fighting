@@ -9,17 +9,20 @@ export class UserPromptBuilder {
   private playerName?: string;
   private recentMessages?: ChatMessage[];
   private killHistory?: KillRecord[];
+  private messageLength: number;
 
   constructor(
     gameState: GameState,
     playerName?: string,
     recentMessages?: ChatMessage[],
     killHistory?: KillRecord[],
+    messageLength?: number,
   ) {
     this.gameState = gameState;
     this.playerName = playerName;
     this.recentMessages = recentMessages;
     this.killHistory = killHistory;
+    this.messageLength = messageLength || 50;
   }
 
   /**
@@ -31,6 +34,10 @@ export class UserPromptBuilder {
       return this.buildFallbackPrompt();
     }
 
+    // 计算对话长度范围（messageLength 的 80%-120%）
+    const minLength = Math.floor(this.messageLength * 0.8);
+    const maxLength = Math.floor(this.messageLength * 1.2);
+
     return `【状态】我是${player.name}，血量${((player.health / player.maxHealth) * 100).toFixed(0)}%，武器${player.currentWeapon}
 【时间】第${this.gameState.currentRound}回合，剩${this.gameState.roundTime}秒
 【对手】${this.buildEnemiesInfo(player)}
@@ -38,7 +45,7 @@ ${this.buildChatHistory()}
 ${this.buildKillHistory()}
 ${this.buildSituation(player)}
 
-生成对话（15-30字），必须@开头！`;
+生成对话（${minLength}-${maxLength}字），必须@开头！`;
   }
 
   private getPlayer() {
@@ -62,6 +69,7 @@ ${this.buildSituation(player)}
     if (!this.recentMessages?.length) return "";
     const now = Date.now();
     const history = this.recentMessages
+      .slice(-10) // 保留最近10条对话记录
       .map((m) => `${m.playerName}: ${m.message} (${Math.floor((now - m.timestamp) / 1000)}秒前)`)
       .join("\n");
     return `【对话】\n${history}`;
@@ -71,7 +79,7 @@ ${this.buildSituation(player)}
     if (!this.killHistory?.length) return "";
     const now = Date.now();
     const kills = this.killHistory
-      .slice(-3)
+      .slice(-10) // 保留最近10条击杀记录
       .map((k) => `${k.killerName}➔${k.victimName} (${Math.floor((now - k.timestamp) / 1000)}秒前)`)
       .join(" | ");
     return `【击杀】${kills}`;

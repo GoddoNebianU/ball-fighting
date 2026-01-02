@@ -63,9 +63,6 @@ export class HealthPackManager {
       player.health += healAmount;
       pack.active = false;
       pack.visible = false;
-      console.log(
-        `Player picked up health pack! Healed: ${healAmount.toFixed(0)}`,
-      );
     }
   }
 

@@ -24,9 +24,10 @@ export class UIComponents {
   public p1AmmoText: Text;
 
   constructor(game: FightingGame) {
-    const names = game.players.getAllPlayerNames();
-    const colors = game.players.getAllPlayerColors();
-    const playerCount = game.players.getPlayerCount();
+    // 处理 players 尚未初始化的情况
+    const names = game.players?.getAllPlayerNames() || [];
+    const colors = game.players?.getAllPlayerColors() || [];
+    const playerCount = game.players?.getPlayerCount() || 0;
 
     this.timeText = new Text({
       text: "99",
@@ -194,5 +195,33 @@ export class UIComponents {
     this.p1AmmoText.anchor.set(0.5);
     this.p1AmmoText.x = 0; // 中上位置
     this.p1AmmoText.y = -FightingGame.CONFIG.stageHeight / 2 + 105;
+  }
+
+  /** 更新玩家名称（在加载敌人后调用） */
+  updatePlayerNames(game: FightingGame): void {
+    if (!game.players) return;
+
+    const names = game.players.getAllPlayerNames();
+    const colors = game.players.getAllPlayerColors();
+    const playerCount = game.players.getPlayerCount();
+
+    const nameTexts = [
+      this.p1NameText,
+      this.p2NameText,
+      this.p3NameText,
+      this.p4NameText,
+      this.p5NameText,
+      this.p6NameText,
+    ];
+
+    for (let i = 0; i < 6; i++) {
+      nameTexts[i].text = names[i] || `P${i + 1}`;
+      nameTexts[i].style = {
+        ...nameTexts[i].style,
+        fill: colors[i] || 0x4488ff,
+      };
+    }
+
+    this.setVisiblePlayers(playerCount);
   }
 }

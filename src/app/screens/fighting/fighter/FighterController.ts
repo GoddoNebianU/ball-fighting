@@ -43,7 +43,6 @@ export class FighterController {
     if (this.fighter.health <= 0 && !this.fighter.isDead) {
       this.fighter.health = 0;
       this.fighter.isDead = true;
-      console.log("Fighter died! Remaining health: 0");
       if (this.onDeathCallback)
         this.onDeathCallback(this.fighter, this.fighter.lastAttacker);
     }
