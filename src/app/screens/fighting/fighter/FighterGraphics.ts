@@ -2,7 +2,6 @@ import { Container, Graphics } from "pixi.js";
 import { Fighter } from "./Fighter";
 import { FighterAnimation } from "./FighterAnimation";
 import { FighterWeaponRenderer } from "./FighterWeaponRenderer";
-import { SpeechBubble } from "./SpeechBubble";
 import { PlayerNameTag } from "./PlayerNameTag";
 
 export class FighterGraphics {
@@ -14,7 +13,6 @@ export class FighterGraphics {
   private healthBarGraphics: Graphics;
   private animation: FighterAnimation;
   private weaponRenderer: FighterWeaponRenderer;
-  private speechBubble: SpeechBubble;
   private nameTag: PlayerNameTag;
 
   constructor(fighter: Fighter, color: number, playerName: string) {
@@ -40,14 +38,9 @@ export class FighterGraphics {
       this.fighter,
       this.weaponGraphics,
     );
-    this.speechBubble = new SpeechBubble();
-    this.speechBubble.setTarget(this.fighter);
     this.nameTag = new PlayerNameTag(playerName, color);
   }
 
-  getSpeechBubble(): SpeechBubble {
-    return this.speechBubble;
-  }
   getNameTag(): PlayerNameTag {
     return this.nameTag;
   }
@@ -103,10 +96,5 @@ export class FighterGraphics {
   update(): void {
     this.animation.update();
     this.weaponRenderer.update();
-    this.speechBubble.update(16);
-  }
-
-  showSpeech(message: string): void {
-    this.speechBubble.show(message);
   }
 }

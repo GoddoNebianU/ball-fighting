@@ -66,7 +66,7 @@ export class FightingScreen extends Container {
   }
 
   public async show() {
-    await this.game.loadEnemies();
+    this.game.loadEnemies();
     await this.game.start();
   }
 

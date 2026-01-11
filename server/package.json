@@ -1,7 +1,7 @@
 {
   "name": "ball-fighting-server",
   "version": "1.0.0",
-  "description": "后端服务器 - 智谱AI对话API",
+  "description": "后端服务器",
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",

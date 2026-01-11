@@ -5,7 +5,6 @@ import { AIStateExecutor } from "./AIStateExecutor";
 import { AIHealthPackBehavior } from "./AIHealthPackBehavior";
 import { AIBulletDodge } from "./AIBulletDodge";
 import { AIAimController } from "./AIAimController";
-import { GameClient } from "../network/GameClient";
 
 /** AI控制器状态 */
 interface AIController {
@@ -27,7 +26,6 @@ export class GameAI {
   private bulletDodge: AIBulletDodge;
   private aimController: AIAimController;
   private aiControllers: Map<Fighter, AIController> = new Map();
-  private gameClient: GameClient;
 
   constructor(game: FightingGame) {
     this.game = game;
@@ -35,7 +33,6 @@ export class GameAI {
     this.healthPackBehavior = new AIHealthPackBehavior();
     this.bulletDodge = new AIBulletDodge();
     this.aimController = new AIAimController();
-    this.gameClient = new GameClient();
 
     // 为每个AI玩家创建控制器
     this.initializeAIControllers();
@@ -148,45 +145,6 @@ export class GameAI {
     if (controller.speechTimer < 0) controller.speechTimer = 0;
     if (controller.speechCooldown < 0) controller.speechCooldown = 0;
 
-    // 处理AI说话逻辑
-    if (controller.speechTimer <= 0 && controller.speechCooldown <= 0) {
-      // 75%概率显示对话
-      if (Math.random() < 0.75) {
-        // 获取玩家名称和风格
-        const playerIndex = this.game.players.findPlayerIndex(ai);
-        const playerName =
-          playerIndex !== -1
-            ? this.game.players.getPlayerName(playerIndex)
-            : "AI";
-        const playerStyle =
-          playerIndex !== -1
-            ? this.game.players.getPlayerStyle(playerIndex)
-            : null;
-        const playerMessageLength =
-          playerIndex !== -1
-            ? this.game.players.getPlayerMessageLength(playerIndex)
-            : 50;
-
-        // 异步调用后端API生成对话
-        this.gameClient
-          .generateAIChat(
-            this.game,
-            playerName,
-            playerStyle,
-            playerMessageLength,
-          )
-          .then((message) => {
-            if (message) {
-              ai.showSpeech(message);
-            }
-          })
-          .catch(() => {});
-      }
-
-      // 重置计时器 (随机8-12秒)
-      controller.speechTimer = 8000 + Math.random() * 4000;
-      controller.speechCooldown = 500; // 500ms冷却，避免重复触发
-    }
     if (controller.idleTimer < 0) controller.idleTimer = 0;
     if (controller.weaponSwitchCooldown < 0)
       controller.weaponSwitchCooldown = 0;

@@ -22,12 +22,6 @@ export interface GameState {
   scores: number[];
 }
 
-export interface ChatMessage {
-  playerName: string;
-  message: string;
-  timestamp: number;
-}
-
 export interface KillRecord {
   killerName: string;
   victimName: string;
@@ -42,20 +36,4 @@ export interface StyleConfig {
   systemPrompt: string;
   style: string;
   templates: string[];
-}
-
-export interface ChatRequest {
-  gameState: GameState;
-  playerName?: string; // 可选：指定说话的角色名称
-  context?: string; // 可选：额外上下文
-  recentMessages?: ChatMessage[]; // 最近的对话历史（最多3-5条）
-  killHistory?: KillRecord[]; // 击杀历史记录
-  style?: StyleConfig; // 可选：角色的风格配置
-  messageLength?: number; // 可选：对话长度（字符数）
-}
-
-export interface ChatResponse {
-  message: string;
-  playerName: string;
-  timestamp: number;
 }

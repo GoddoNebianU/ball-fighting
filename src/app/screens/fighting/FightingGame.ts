@@ -11,7 +11,6 @@ import { GameUI } from "./ui/GameUI";
 import { GameAI } from "./ai/GameAI";
 import { GameLoop } from "./GameLoop";
 import { GameMode } from "./types";
-import { GameClient, CharacterConfig } from "./network/GameClient";
 
 export class FightingGame extends Container {
   static readonly CONFIG = {
@@ -33,18 +32,14 @@ export class FightingGame extends Container {
   private ai: GameAI;
   players: PlayerManager = null!;
   private gameLoop: GameLoop;
-  speechBubblesContainer: Container;
   nameTagsContainer: Container;
   private killToastsContainer: Container;
   private killHistory: KillHistory;
   private killToasts: KillToast[] = [];
-  private gameClient: GameClient;
-  private currentStyle: string = "default";
 
   constructor(mode: GameMode = GameMode.VS_CPU) {
     super();
     this.mode = mode;
-    this.gameClient = new GameClient();
     this.stage = new FightingStage();
     this.ui = new GameUI(this);
     this.input = new GameInput(this);
@@ -52,7 +47,6 @@ export class FightingGame extends Container {
     this.effectManager = new EffectManager(this);
     this.healthPacks = new HealthPackManager(this);
     this.ai = new GameAI(this);
-    this.speechBubblesContainer = new Container();
     this.nameTagsContainer = new Container();
     this.killToastsContainer = new Container();
     this.killHistory = new KillHistory();
@@ -75,7 +69,6 @@ export class FightingGame extends Container {
   /** 添加基础子对象（不包括玩家） */
   private addChildrenBase(): void {
     this.addChild(this.stage.container);
-    this.addChild(this.speechBubblesContainer);
     this.addChild(this.nameTagsContainer);
     this.addChild(this.killToastsContainer);
     this.addChild(this.ui.container);
@@ -96,52 +89,34 @@ export class FightingGame extends Container {
   }
 
   /** 从后端加载敌人配置并初始化游戏 */
-  async loadEnemies(styleName?: string): Promise<boolean> {
-    const style = styleName || this.currentStyle;
-    try {
-      const enemiesResponse = await this.gameClient.getStyleEnemies(style);
-      if (!enemiesResponse || enemiesResponse.characters.length === 0) {
-        console.warn(
-          `[FightingGame] 未找到风格 "${style}" 的敌人配置，使用默认配置`,
-        );
-        this.loadDefaultEnemies();
-        return false;
-      }
-
-      const playerConfigs: PlayerConfig[] = enemiesResponse.characters.map(
-        (char: CharacterConfig) => ({
-          name: char.name,
-          color:
-            (typeof char.color === "string"
-              ? parseInt(char.color, 10)
-              : char.color) >>> 0,
-          startX: char.startX,
-          startY: char.startY,
-          isAI: true, // 所有角色都是 AI
-          style: char.style, // 直接使用 style 对象（可能是 undefined）
-          messageLength: char.messageLength || 50,
-        }),
-      );
-
-      this.players = new PlayerManager(playerConfigs);
-      this.gameLoop.updatePlayersList(this.players.getAllPlayers());
-      this.setupPlayerCallbacks();
-      this.addPlayers();
-      this.ui.updatePlayerNames(this);
-      this.ai.reinitializeAIControllers();
-
-      this.currentStyle = style;
-      console.log(
-        `[FightingGame] 已加载风格 "${enemiesResponse.styleName}" 的 ${playerConfigs.length} 个角色`,
-      );
-      return true;
-    } catch (error) {
-      console.error(`[FightingGame] 加载敌人配置失败:`, error);
-      this.loadDefaultEnemies();
-      return false;
-    }
+  loadEnemies(): void {
+    this.loadDefaultEnemies();
   }
 
+  private setupPlayerCallbacks(): void {
+    this.players.getAllPlayers().forEach((player) => {
+      player.setDeathCallback((victim, killer) => {
+        const victimIndex = this.players.findPlayerIndex(victim);
+        if (killer) {
+          const killerIndex = this.players.findPlayerIndex(killer);
+          this.showKillToast(
+            killerIndex !== -1
+              ? this.players.getPlayerName(killerIndex)
+              : "Unknown",
+            victimIndex !== -1
+              ? this.players.getPlayerName(victimIndex)
+              : "Unknown",
+            killerIndex !== -1
+              ? this.players.getPlayerColor(killerIndex)
+              : 0xff0000,
+            victimIndex !== -1
+              ? this.players.getPlayerColor(victimIndex)
+              : 0x888888,
+          );
+        }
+      });
+    });
+  }
   /** 加载默认敌人配置 */
   private loadDefaultEnemies(): void {
     const playerConfigs: PlayerConfig[] = [
@@ -164,38 +139,6 @@ export class FightingGame extends Container {
     this.addPlayers();
     this.ui.updatePlayerNames(this);
     this.ai.reinitializeAIControllers();
-  }
-
-  private setupPlayerCallbacks(): void {
-    this.players.getAllPlayers().forEach((player) => {
-      this.speechBubblesContainer.addChild(
-        player.getSpeechBubble().getContainer(),
-      );
-      player.setDeathCallback((victim, killer) => {
-        const victimIndex = this.players.findPlayerIndex(victim);
-        if (victimIndex !== -1)
-          this.gameClient.clearPlayerQueue(
-            this.players.getPlayerName(victimIndex),
-          );
-        if (killer) {
-          const killerIndex = this.players.findPlayerIndex(killer);
-          this.showKillToast(
-            killerIndex !== -1
-              ? this.players.getPlayerName(killerIndex)
-              : "Unknown",
-            victimIndex !== -1
-              ? this.players.getPlayerName(victimIndex)
-              : "Unknown",
-            killerIndex !== -1
-              ? this.players.getPlayerColor(killerIndex)
-              : 0xff0000,
-            victimIndex !== -1
-              ? this.players.getPlayerColor(victimIndex)
-              : 0x888888,
-          );
-        }
-      });
-    });
   }
 
   update(currentTime: number): void {

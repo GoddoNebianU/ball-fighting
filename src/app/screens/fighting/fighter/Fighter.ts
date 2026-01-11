@@ -124,12 +124,6 @@ export class Fighter extends Container {
     this.physics.velocityY = value;
   }
 
-  showSpeech(message: string) {
-    this.graphics.showSpeech(message);
-  }
-  getSpeechBubble() {
-    return this.graphics.getSpeechBubble();
-  }
   getNameTag() {
     return this.graphics.getNameTag();
   }
